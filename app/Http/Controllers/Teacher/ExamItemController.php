@@ -9,8 +9,6 @@ use Illuminate\Http\Request;
 
 class ExamItemController extends Controller
 {
-
-
     /**
      * Store a newly created resource in storage.
      */
@@ -43,10 +41,6 @@ class ExamItemController extends Controller
         ], 201);
     }
 
-
-
-
-
     public function update(Request $request, Exam $exam, ExamItem $item)
     {
         // make sure the item belongs to the exam
@@ -71,7 +65,4 @@ class ExamItemController extends Controller
             'item' => $item
         ]);
     }
-
-
-
 }
