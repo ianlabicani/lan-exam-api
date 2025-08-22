@@ -93,6 +93,21 @@ class ExamController extends Controller
         return response()->json($exam);
     }
 
+
+    public function updateStatus(Request $request, Exam $exam)
+    {
+        $validated = $request->validate([
+            'status' => 'required|in:draft,active,archived,published',
+        ]);
+
+        $exam->update(['status' => $validated['status']]);
+
+        return response()->json([
+            'message' => 'Exam status updated successfully',
+            'exam' => $exam
+        ]);
+    }
+
     // Delete exam
     public function destroy(string $id)
     {
