@@ -17,9 +17,10 @@ class ExamController extends Controller
         return response()->json(["exams" => $exams]);
     }
 
-    public function show(string $id)
+    public function show(int $id)
     {
         $exam = Exam::findOrFail($id);
+        $exam = $exam->load('items');
         return response()->json($exam);
     }
 
