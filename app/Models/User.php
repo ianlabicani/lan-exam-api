@@ -56,4 +56,10 @@ class User extends Authenticatable
     {
         return $this->roles()->where('name', $role)->exists();
     }
+
+    public function exams()
+    {
+        return $this->belongsToMany(Exam::class, 'exam_teacher', 'teacher_id', 'exam_id');
+    }
+
 }

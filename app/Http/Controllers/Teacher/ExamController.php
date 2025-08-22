@@ -37,7 +37,7 @@ class ExamController extends Controller
             'total_points' => 'integer|min:0',
         ]);
 
-        $exam = Exam::create($validated);
+        $exam = $request->user()->exams()->create($validated);
 
         return response()->json($exam, 201);
     }

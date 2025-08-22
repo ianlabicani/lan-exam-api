@@ -16,4 +16,9 @@ class Exam extends Model
         'status',
         'total_points',
     ];
+
+    public function teachers()
+    {
+        return $this->belongsToMany(User::class, 'exam_teacher', 'exam_id', 'teacher_id');
+    }
 }

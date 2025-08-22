@@ -3,6 +3,7 @@
 namespace Database\Seeders;
 
 use App\Models\Exam;
+use App\Models\User;
 use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
 
@@ -37,7 +38,16 @@ class ExamSeeder extends Seeder
         ];
 
         foreach ($exams as $exam) {
-            Exam::create($exam);
+            $createdExam = Exam::create($exam);
+
+            // Attach all teachers (users having the 'teacher' role) to the exam
+            $teachers = User::whereHas('roles', function ($q) {
+                $q->where('name', 'teacher');
+            })->pluck('id');
+
+            if ($teachers->isNotEmpty()) {
+                $createdExam->teachers()->syncWithoutDetaching($teachers);
+            }
         }
     }
 }

@@ -18,16 +18,18 @@ class UserSeeder extends Seeder
         $teacher = User::create([
             'name' => 'John Teacher',
             'email' => 'teacher@example.com',
-            'password' => Hash::make('password'), // change in production
+            'password' => Hash::make('password'),
         ]);
         $teacher->roles()->attach(Role::where('name', 'teacher')->first());
 
+        // Student user
         $student = User::create([
             'name' => 'Jane Student',
             'email' => 'student@example.com',
             'password' => Hash::make('password'),
+            'year' => '1',
+            'section' => 'a',
         ]);
         $student->roles()->attach(Role::where('name', 'student')->first());
-
     }
 }
