@@ -9,13 +9,7 @@ use Illuminate\Http\Request;
 
 class ExamItemController extends Controller
 {
-    /**
-     * Display a listing of the resource.
-     */
-    public function index()
-    {
-        //
-    }
+
 
     /**
      * Store a newly created resource in storage.
@@ -51,27 +45,33 @@ class ExamItemController extends Controller
 
 
 
-    /**
-     * Display the specified resource.
-     */
-    public function show(ExamItem $examItem)
+
+
+    public function update(Request $request, Exam $exam, ExamItem $item)
     {
-        //
+        // make sure the item belongs to the exam
+        if ($item->exam_id !== $exam->id) {
+            return response()->json(['error' => 'This item does not belong to the given exam.'], 403);
+        }
+
+        $validated = $request->validate([
+            'question' => 'sometimes|required|string',
+            'points' => 'sometimes|required|integer|min:1',
+            'expected_answer' => 'nullable|string',
+            'answer' => 'nullable|boolean',
+            'options' => 'nullable|array',
+            'options.*.text' => 'required_with:options|string',
+            'options.*.correct' => 'required_with:options|boolean',
+        ]);
+
+        $item->update($validated);
+
+        return response()->json([
+            'message' => 'Item updated successfully',
+            'item' => $item
+        ]);
     }
 
-    /**
-     * Update the specified resource in storage.
-     */
-    public function update(Request $request, ExamItem $examItem)
-    {
-        //
-    }
 
-    /**
-     * Remove the specified resource from storage.
-     */
-    public function destroy(ExamItem $examItem)
-    {
-        //
-    }
+
 }
