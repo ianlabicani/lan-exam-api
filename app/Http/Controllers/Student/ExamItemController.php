@@ -1,9 +1,11 @@
 <?php
 
-namespace App\Http\Controllers\Teacher;
+namespace App\Http\Controllers\Student;
 
 use App\Http\Controllers\Controller;
 use App\Models\Exam;
+use App\Models\ExamItem;
+use Illuminate\Http\Request;
 
 class ExamItemController extends Controller
 {

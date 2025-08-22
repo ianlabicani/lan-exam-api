@@ -10,15 +10,12 @@ return new class extends Migration {
      */
     public function up(): void
     {
-        Schema::create('exams', function (Blueprint $table) {
+        Schema::create('taken_exams', function (Blueprint $table) {
             $table->id();
-            $table->string('title');
-            $table->text('description')->nullable();
-            $table->dateTime('starts_at');
-            $table->dateTime('ends_at');
-            $table->string('year');
-            $table->string('section');
-            $table->enum('status', ['draft', 'published', 'active', 'archived'])->default('draft');
+            $table->foreignId('exam_id')->constrained('exams')->cascadeOnDelete();
+            $table->foreignId('user_id')->constrained('users')->cascadeOnDelete();
+            $table->timestamp('started_at')->nullable();
+            $table->timestamp('submitted_at')->nullable();
             $table->integer('total_points')->default(0);
             $table->timestamps();
         });
@@ -29,6 +26,6 @@ return new class extends Migration {
      */
     public function down(): void
     {
-        Schema::dropIfExists('exams');
+        Schema::dropIfExists('taken_exams');
     }
 };
