@@ -17,6 +17,12 @@ class Exam extends Model
         'total_points',
     ];
 
+    protected $casts = [
+        'starts_at' => 'datetime',
+        'ends_at' => 'datetime',
+    ];
+
+
     public function teachers()
     {
         return $this->belongsToMany(User::class, 'exam_teacher', 'exam_id', 'teacher_id');
