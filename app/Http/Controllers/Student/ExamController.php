@@ -10,11 +10,16 @@ class ExamController extends Controller
 {
     public function index(Request $request)
     {
-        $year = $request->user()->year;
-        $section = $request->user()->section;
+        $student = $request->user();
+        $year = $student->year;
+        $section = $student->section;
 
-        return Exam::where('year', $year)
+        $exams = Exam::where('year', $year)
             ->where('section', $section)
             ->get();
+
+        return response()->json([
+            'exams' => $exams
+        ]);
     }
 }
