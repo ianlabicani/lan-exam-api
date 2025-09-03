@@ -36,39 +36,13 @@ class ExamController extends Controller
             'section' => 'required|string',
             'status' => 'in:draft,active,archived',
             'total_points' => 'integer|min:0',
-
-            // items
-            'items' => 'array',
-            'items.*.type' => 'required|string|in:mcq,truefalse,essay',
-            'items.*.question' => 'required|string',
-            'items.*.points' => 'required|integer|min:1',
-
-            // optional fields depending on type
-            'items.*.expected_answer' => 'nullable|string',   // for essay
-            'items.*.answer' => 'nullable|boolean',          // for true/false
-            'items.*.options' => 'nullable|array',           // for mcq
-            'items.*.options.*.text' => 'required_with:items.*.options|string',
-            'items.*.options.*.correct' => 'required_with:items.*.options|boolean',
         ]);
 
         // Create exam
         $exam = $request->user()->exams()->create($validated);
 
-        // Attach items if provided
-        if (!empty($validated['items'])) {
-            foreach ($validated['items'] as $item) {
-                $exam->items()->create([
-                    'type' => $item['type'],
-                    'question' => $item['question'],
-                    'points' => $item['points'],
-                    'expected_answer' => $item['expected_answer'] ?? null,
-                    'answer' => $item['answer'] ?? null,
-                    'options' => $item['options'] ?? null,
-                ]);
-            }
-        }
 
-        return response()->json($exam->load('items'), 201);
+        return response()->json(["exam" => $exam]);
     }
 
 
