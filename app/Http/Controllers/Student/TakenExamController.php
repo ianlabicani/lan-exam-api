@@ -24,8 +24,7 @@ class TakenExamController extends Controller
             ->first();
 
         if ($completedAttempt) {
-
-            $completedAttempt->load('answers');
+            $completedAttempt->load(['answers', 'exam']);
 
             return response()->json([
                 'takenExam' => $completedAttempt,
@@ -39,9 +38,9 @@ class TakenExamController extends Controller
             ->where('user_id', $userId)
             ->whereNull('submitted_at')
             ->first();
-        $takenExam->load('answers');
 
         if ($takenExam) {
+            $takenExam->load(['answers', 'exam']);
             return response()->json(['takenExam' => $takenExam]);
         }
 
@@ -54,13 +53,14 @@ class TakenExamController extends Controller
             'total_points' => 0,
         ]);
 
+        $attempt->load('exam');
         return response()->json(['takenExam' => $attempt], 201);
     }
 
 
     public function finish(Request $request, $id)
     {
-        $takenExam = TakenExam::with('answers.item')->findOrFail($id);
+        $takenExam = TakenExam::with(['answers.item', 'exam'])->findOrFail($id);
 
         // Compute score
         $score = 0;

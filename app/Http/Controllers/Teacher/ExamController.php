@@ -90,4 +90,12 @@ class ExamController extends Controller
 
         return response()->json(null, 204);
     }
+
+    public function getExamTakers(int $id)
+    {
+        $exam = Exam::findOrFail($id);
+        $exam->load('takenExams.user');
+
+        return response()->json($exam);
+    }
 }

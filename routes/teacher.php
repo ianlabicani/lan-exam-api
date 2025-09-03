@@ -9,4 +9,5 @@ Route::prefix('teacher')->middleware(['auth:sanctum'])->group(function () {
     Route::resource('exams', ExamController::class);
     Route::patch('exams/{exam}/status', [ExamController::class, 'updateStatus']);
     Route::resource('exams.items', ExamItemController::class);
+    Route::get('exams/{id}/takers', [ExamController::class, 'getExamTakers']);
 });

@@ -32,4 +32,9 @@ class Exam extends Model
     {
         return $this->hasMany(ExamItem::class);
     }
+
+    public function takenExams()
+    {
+        return $this->hasMany(TakenExam::class);
+    }
 }
