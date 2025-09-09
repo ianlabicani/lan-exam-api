@@ -11,7 +11,7 @@ class ExamItemController extends Controller
 {
     public function index(Exam $exam): JsonResponse
     {
-        return response()->json(['items' => $exam->items]);
+        return response()->json($exam->items);
     }
 
     public function store(Request $request, Exam $exam): JsonResponse
@@ -69,6 +69,92 @@ class ExamItemController extends Controller
         return response()->json([
             'item' => $item,
         ], 201);
+    }
+
+    public function update(Request $request, Exam $exam, $itemId): JsonResponse
+    {
+        if (in_array($exam->status, ['active', 'archived'])) {
+            return response()->json(['message' => 'Cannot modify items of an active or archived exam.'], 422);
+        }
+
+        $item = $exam->items()->findOrFail($itemId);
+
+        $payload = $request->validate([
+            'type' => 'sometimes|string|in:mcq,truefalse,essay',
+            'question' => 'sometimes|string',
+            'points' => 'sometimes|integer|min:1',
+            'expected_answer' => 'nullable|string',
+            'answer' => 'nullable|boolean',
+            'options' => 'nullable|array',
+            'options.*.text' => 'required_with:options|string',
+            'options.*.correct' => 'required_with:options|boolean',
+        ]);
+
+        // Merge current item data with incoming payload so helpers can operate on a full dataset
+        $data = array_merge($item->toArray(), $payload);
+
+        $type = $payload['type'] ?? $item->type;
+
+        switch ($type) {
+            case 'mcq':
+                $data = $this->prepareMcq($request, $data);
+                if (isset($data['_error'])) {
+                    return $data['_error'];
+                }
+                break;
+            case 'truefalse':
+                $data = $this->prepareTrueFalse($request, $data);
+                if (isset($data['_error'])) {
+                    return $data['_error'];
+                }
+                break;
+            case 'essay':
+                $data = $this->prepareEssay($data);
+                if (isset($data['_error'])) {
+                    return $data['_error'];
+                }
+                break;
+        }
+
+        $updateData = [
+            'type' => $type,
+            'question' => $data['question'] ?? $item->question,
+            'points' => $data['points'] ?? $item->points,
+            'expected_answer' => $data['expected_answer'] ?? null,
+            'answer' => $data['answer'] ?? null,
+            'options' => $data['options'] ?? null,
+        ];
+
+        $item->update($updateData);
+
+        // Recalculate total points for the exam
+        $total = $exam->items()->sum('points');
+        if ($exam->total_points !== $total) {
+            $exam->update(['total_points' => $total]);
+        }
+
+        return response()->json([
+            'item' => $item->fresh(),
+        ]);
+    }
+
+    public function destroy(Exam $exam, $itemId): JsonResponse
+    {
+        if (in_array($exam->status, ['active', 'archived'])) {
+            return response()->json(['message' => 'Cannot delete items of an active or archived exam.'], 422);
+        }
+
+        $item = $exam->items()->findOrFail($itemId);
+
+        $item->delete();
+
+        // Recalculate total points for the exam
+        $total = $exam->items()->sum('points');
+        if ($exam->total_points !== $total) {
+            $exam->update(['total_points' => $total]);
+        }
+
+        return response()->json(null, 204);
     }
 
     // validateBase removed; validation is done inline in store().

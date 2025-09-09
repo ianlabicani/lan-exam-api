@@ -9,18 +9,16 @@ use Illuminate\Http\Request;
 
 class ExamController extends Controller
 {
-    // List all exams
     public function index(Request $request): JsonResponse
     {
         $user = $request->user();
         $exams = $user->exams ?? [];
-        return response()->json(["exams" => $exams]);
+        return response()->json($exams);
     }
 
     public function show(int $id)
     {
         $exam = Exam::findOrFail($id);
-        $exam = $exam->load('items');
         return response()->json($exam);
     }
 
@@ -76,10 +74,7 @@ class ExamController extends Controller
 
         $exam->update(['status' => $validated['status']]);
 
-        return response()->json([
-            'message' => 'Exam status updated successfully',
-            'exam' => $exam
-        ]);
+        return response()->json($exam);
     }
 
     // Delete exam
@@ -94,8 +89,7 @@ class ExamController extends Controller
     public function getExamTakers(int $id)
     {
         $exam = Exam::findOrFail($id);
-        $exam->load('takenExams.user');
-
-        return response()->json($exam);
+        $takers = $exam->takenExams()->with('user')->get()->pluck('user')->filter();
+        return response()->json(['takers' => $takers->values()]);
     }
 }
