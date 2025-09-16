@@ -17,9 +17,10 @@ return new class extends Migration {
             $table->dateTime('starts_at');
             $table->dateTime('ends_at');
             $table->string('year');
-            $table->string('section');
+            $table->json('sections');
             $table->enum('status', ['draft', 'published', 'active', 'archived'])->default('draft');
             $table->integer('total_points')->default(0);
+            $table->json('tos');
             $table->timestamps();
         });
     }

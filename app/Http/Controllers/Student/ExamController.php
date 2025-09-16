@@ -15,8 +15,9 @@ class ExamController extends Controller
         $year = $student->year;
         $section = $student->section;
 
-        $exams = Exam::where('year', $year)
-            ->where('section', $section)
+        $exams = Exam::query()
+            ->where('year', $year)
+            ->whereJsonContains('sections', $section)
             ->get();
 
         $exams->load('takenExams');

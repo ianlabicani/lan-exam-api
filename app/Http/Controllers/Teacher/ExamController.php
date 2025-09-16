@@ -31,13 +31,44 @@ class ExamController extends Controller
             'starts_at' => 'required|date',
             'ends_at' => 'required|date|after:starts_at',
             'year' => 'required|string',
-            'section' => 'required|string',
-            'status' => 'in:draft,active,archived',
+            'sections' => 'required', // string like "E,F" or array
+            'status' => 'in:draft,active,archived,published',
             'total_points' => 'integer|min:0',
+            'tos' => 'required|array',
         ]);
 
-        // Create exam
-        $exam = $request->user()->exams()->create($validated);
+        // Normalize sections (accepts comma-separated string or array)
+        $sectionsInput = $request->input('sections');
+        if (is_string($sectionsInput)) {
+            $sections = array_values(array_filter(array_map(static function ($s) {
+                return trim($s);
+            }, explode(',', $sectionsInput)), static fn($v) => $v !== ''));
+        } elseif (is_array($sectionsInput)) {
+            $sections = array_values(array_filter(array_map(static function ($s) {
+                return is_string($s) ? trim($s) : $s;
+            }, $sectionsInput), static fn($v) => $v !== '' && $v !== null));
+        } else {
+            $sections = [];
+        }
+
+        if (empty($sections)) {
+            return response()->json(['errors' => ['sections' => ['At least one section is required.']]], 422);
+        }
+
+        $payload = [
+            'title' => $validated['title'],
+            'description' => $validated['description'] ?? null,
+            'starts_at' => $validated['starts_at'],
+            'ends_at' => $validated['ends_at'],
+            'year' => $validated['year'],
+            'sections' => $sections,
+            'status' => $validated['status'] ?? 'draft',
+            'total_points' => $validated['total_points'] ?? 0,
+            'tos' => $validated['tos'],
+        ];
+
+        // Create exam (via relation to auto-attach teacher)
+        $exam = $request->user()->exams()->create($payload);
 
 
         return response()->json(["exam" => $exam]);
@@ -55,12 +86,37 @@ class ExamController extends Controller
             'starts_at' => 'sometimes|date',
             'ends_at' => 'sometimes|date|after:starts_at',
             'year' => 'sometimes|string',
-            'section' => 'sometimes|string',
-            'status' => 'in:draft,active,archived',
+            'sections' => 'sometimes', // string or array
+            'status' => 'in:draft,active,archived,published',
             'total_points' => 'integer|min:0',
+            'tos' => 'sometimes|array',
         ]);
 
-        $exam->update($validated);
+        $payload = $validated;
+
+        // Normalize sections when provided
+        if ($request->has('sections')) {
+            $sectionsInput = $request->input('sections');
+            if (is_string($sectionsInput)) {
+                $sections = array_values(array_filter(array_map(static function ($s) {
+                    return trim($s);
+                }, explode(',', $sectionsInput)), static fn($v) => $v !== ''));
+            } elseif (is_array($sectionsInput)) {
+                $sections = array_values(array_filter(array_map(static function ($s) {
+                    return is_string($s) ? trim($s) : $s;
+                }, $sectionsInput), static fn($v) => $v !== '' && $v !== null));
+            } else {
+                $sections = [];
+            }
+
+            if (empty($sections)) {
+                return response()->json(['errors' => ['sections' => ['At least one section is required.']]], 422);
+            }
+
+            $payload['sections'] = $sections;
+        }
+
+        $exam->update($payload);
 
         return response()->json($exam);
     }

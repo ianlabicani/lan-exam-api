@@ -154,7 +154,7 @@ class ExamItemController extends Controller
             $exam->update(['total_points' => $total]);
         }
 
-        return response()->json(null, 204);
+        return response()->json(['success' => true]);
     }
 
     // validateBase removed; validation is done inline in store().

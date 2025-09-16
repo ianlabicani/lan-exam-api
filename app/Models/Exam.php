@@ -12,14 +12,17 @@ class Exam extends Model
         'starts_at',
         'ends_at',
         'year',
-        'section',
+        'sections',
         'status',
         'total_points',
+        'tos',
     ];
 
     protected $casts = [
         'starts_at' => 'datetime',
         'ends_at' => 'datetime',
+        'sections' => 'array',
+        'tos' => 'array',
     ];
 
 
