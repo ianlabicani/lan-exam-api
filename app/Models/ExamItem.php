@@ -8,17 +8,20 @@ class ExamItem extends Model
 {
     protected $fillable = [
         'exam_id',
-        'type',
+        'type',             // mcq, truefalse, fillblank, shortanswer, essay, matching
+        'level',            // easy, average, difficult
         'question',
         'points',
-        'expected_answer',
-        'answer',
-        'options',
+        'expected_answer',  // text/expected value
+        'answer',           // student answer (string, nullable)
+        'options',          // for mcq/truefalse
+        'pairs',            // for matching
     ];
 
     protected $casts = [
-        'options' => 'array',
-        'answer' => 'boolean',
+        'options' => 'array',   // stores options as JSON
+        'pairs' => 'array',   // stores left-right matching pairs as JSON
+        'answer' => 'string',  // student’s answer (can be null)
     ];
 
     public function exam()

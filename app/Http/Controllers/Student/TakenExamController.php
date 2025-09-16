@@ -80,7 +80,9 @@ class TakenExamController extends Controller
                     }
                 }
             } elseif ($answer->type === 'truefalse') {
-                if ((bool) $answer->answer === (bool) $answer->item->answer) {
+                $expected = strtolower((string) ($answer->item->expected_answer ?? ''));
+                $expectedBool = in_array($expected, ['true', '1', 'yes'], true);
+                if ((bool) $answer->answer === $expectedBool) {
                     $score += $answer->item->points;
                 }
             }
