@@ -35,6 +35,7 @@ class ExamItemController extends Controller
             'pairs.*.right' => 'required_with:pairs|string',
         ]);
 
+
         switch ($payload['type']) {
             case 'mcq':
                 $payload = $this->prepareMcq($request, $payload);
@@ -54,7 +55,7 @@ class ExamItemController extends Controller
                     return $payload['_error'];
                 }
                 break;
-            case 'fillblank':
+            case 'fillblank': // legacy support
                 $payload = $this->prepareFillBlank($payload);
                 if (isset($payload['_error'])) {
                     return $payload['_error'];
@@ -142,7 +143,7 @@ class ExamItemController extends Controller
                     return $data['_error'];
                 }
                 break;
-            case 'fillblank':
+            case 'fillblank': // legacy support
                 $data = $this->prepareFillBlank($data);
                 if (isset($data['_error'])) {
                     return $data['_error'];

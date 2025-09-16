@@ -13,12 +13,13 @@ return new class extends Migration {
         Schema::create('exam_items', function (Blueprint $table) {
             $table->id();
             $table->foreignId('exam_id')->constrained()->onDelete('cascade');
-            $table->enum('type', ['mcq', 'truefalse', 'essay']);
+            $table->enum('type', ['mcq', 'truefalse', 'essay', 'fillblank', 'shortanswer', 'matching']);
             $table->text('question');
             $table->integer('points');
             $table->text('expected_answer')->nullable();
-            $table->boolean('answer')->nullable();
+            $table->text('answer')->nullable();
             $table->json('options')->nullable();
+            $table->json('pairs')->nullable();
             $table->timestamps();
         });
     }
