@@ -15,5 +15,6 @@ Route::prefix('student')->middleware(['auth:sanctum'])->group(function () {
 
     // Answers
     Route::post('/taken-exams/{takenExam}/answers', [TakenExamAnswerController::class, 'store']);
+    Route::get('/taken-exams/{takenExamId}', [TakenExamController::class, 'show']);
 
 });

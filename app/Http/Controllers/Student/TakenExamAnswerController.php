@@ -32,4 +32,13 @@ class TakenExamAnswerController extends Controller
         return response()->json($answer, 201);
     }
 
+    public function show($takenExamId)
+    {
+        $answers = TakenExamAnswers::with('item')
+            ->where('taken_exam_id', $takenExamId)
+            ->get();
+
+        return response()->json(['data' => $answers]);
+    }
+
 }

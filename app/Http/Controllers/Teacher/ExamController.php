@@ -16,9 +16,8 @@ class ExamController extends Controller
         return response()->json($exams);
     }
 
-    public function show(int $id)
+    public function show(Exam $exam)
     {
-        $exam = Exam::findOrFail($id);
         return response()->json($exam);
     }
 

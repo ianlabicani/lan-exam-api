@@ -96,5 +96,14 @@ class TakenExamController extends Controller
 
         return response()->json($takenExam);
     }
+    /**
+     * Display a taken exam with its related exam.
+     */
+    public function show(int $id)
+    {
+        $takenExam = TakenExam::with('exam', 'answers')->findOrFail($id);
+
+        return response()->json(['data' => $takenExam]);
+    }
 
 }
