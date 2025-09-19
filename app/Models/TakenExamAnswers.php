@@ -14,6 +14,17 @@ class TakenExamAnswers extends Model
         'answer',
     ];
 
+    protected $casts = [
+        /**
+         * Answer can be:
+         * - int (mcq index)
+         * - bool (true/false)
+         * - string (short/essay/fill_blank)
+         * - array (matching pairs)
+         */
+        'answer' => 'array',
+    ];
+
     public $incrementing = false;
     protected $keyType = 'string';
 
