@@ -8,9 +8,16 @@ use Illuminate\Http\Request;
 
 class TakenExamController extends Controller
 {
-    /**
-     * Start a new exam attempt
-     */
+
+    public function index(Request $request)
+    {
+        $user = $request->user();
+        $takenExams = TakenExam::with('exam')
+            ->where('user_id', $user->id)
+            ->get();
+
+        return response()->json(['data' => $takenExams]);
+    }
 
     public function store(Request $request, $examId)
     {

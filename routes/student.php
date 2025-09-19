@@ -14,6 +14,7 @@ Route::prefix('student')->middleware(['auth:sanctum'])->group(function () {
     Route::post('/taken-exams/{id}/submit', [TakenExamController::class, 'finish']);
 
     // Answers
+    Route::get('/taken-exams', [TakenExamController::class, 'index']);
     Route::post('/taken-exams/{takenExam}/answers', [TakenExamAnswerController::class, 'store']);
     Route::get('/taken-exams/{takenExamId}', [TakenExamController::class, 'show']);
 
