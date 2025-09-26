@@ -14,9 +14,14 @@ class ExamController extends Controller
         $year = $student->year;
         $section = $student->section;
 
-        // Fetch by year, then case-insensitive filter on JSON sections array
+        // Fetch by year with taken exams for this student, then case-insensitive filter on JSON sections array
         $exams = Exam::query()
             ->where('year', $year)
+            ->with([
+                'takenExams' => function ($query) use ($student) {
+                    $query->where('user_id', $student->id);
+                }
+            ])
             ->get()
             ->filter(function (Exam $exam) use ($section) {
                 $sections = (array) ($exam->sections ?? []);
@@ -28,10 +33,14 @@ class ExamController extends Controller
                 }
                 return false;
             })
+            ->map(function (Exam $exam) {
+                // Add taken_exam property (first/only taken exam for this student)
+                $exam->taken_exam = $exam->takenExams->first();
+                // Clean up the takenExams collection to avoid duplication
+                unset($exam->takenExams);
+                return $exam;
+            })
             ->values();
-
-        $exams->load('takenExams');
-
 
         return response()->json([
             'data' => $exams
