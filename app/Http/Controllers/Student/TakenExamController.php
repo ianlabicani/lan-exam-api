@@ -61,7 +61,7 @@ class TakenExamController extends Controller
         ]);
 
         $attempt->load('exam');
-        return response()->json(['takenExam' => $attempt], 201);
+        return response()->json(['data' => $attempt], 201);
     }
 
 
