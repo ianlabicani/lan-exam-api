@@ -10,5 +10,6 @@ Route::prefix('teacher')->middleware(['auth:sanctum'])->group(function () {
     Route::resource('exams', ExamController::class);
     Route::patch('exams/{exam}/status', [ExamController::class, 'updateStatus']);
     Route::resource('exams.items', ExamItemController::class);
-    Route::get('exams/{id}/takers', [TakenExamController::class, 'index']);
+    Route::get('exams/{exam}/takenExams', [TakenExamController::class, 'index']);
+    Route::get('exams/{exam}/takenExams/{takenExam}', [TakenExamController::class, 'show']);
 });
