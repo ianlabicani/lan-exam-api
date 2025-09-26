@@ -8,16 +8,12 @@ class TakenExam extends Model
 {
 
     protected $fillable = [
-        'id',
         'exam_id',
         'user_id',
         'started_at',
         'submitted_at',
         'total_points',
     ];
-
-    public $incrementing = false;
-    protected $keyType = 'string';
 
     public function exam()
     {
