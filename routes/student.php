@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Student\ExamActivityLogController;
 use App\Http\Controllers\Student\ExamController;
 use App\Http\Controllers\Student\ExamItemController;
 use App\Http\Controllers\Student\TakenExamAnswerController;
@@ -17,5 +18,10 @@ Route::prefix('student')->middleware(['auth:sanctum'])->group(function () {
     Route::get('/taken-exams', [TakenExamController::class, 'index']);
     Route::post('/taken-exams/{takenExam}/answers', [TakenExamAnswerController::class, 'store']);
     Route::get('/taken-exams/{takenExamId}', [TakenExamController::class, 'show']);
+
+
+    // student activity
+    Route::post('/exam-activity', [ExamActivityLogController::class, 'store']);
+    Route::get('/taken-exam/{takenExamId}/activity', [ExamActivityLogController::class, 'getExamLogs']);
 
 });
