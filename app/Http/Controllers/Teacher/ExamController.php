@@ -12,8 +12,22 @@ class ExamController extends Controller
     public function index(Request $request): JsonResponse
     {
         $user = $request->user();
-        $exams = $user->exams ?? [];
-        return response()->json($exams);
+        $exams = $user->exams()
+            ->select([
+                'exams.id',
+                'exams.title',
+                'exams.description',
+                'exams.starts_at',
+                'exams.ends_at',
+                'exams.year',
+                'exams.sections',
+                'exams.status',
+                'exams.total_points',
+                'exams.created_at',
+                'exams.updated_at'
+            ])->get()->makeHidden(['pivot']);
+
+        return response()->json(['data' => $exams]);
     }
 
     public function show(Exam $exam)
