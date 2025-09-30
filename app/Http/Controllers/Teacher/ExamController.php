@@ -32,7 +32,7 @@ class ExamController extends Controller
 
     public function show(Exam $exam)
     {
-        return response()->json($exam);
+        return response()->json(['data' => $exam]);
     }
 
     // Create exam

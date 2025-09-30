@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Teacher;
 
 use App\Http\Controllers\Controller;
 use App\Models\Exam;
+use App\Models\ExamItem;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 
@@ -11,7 +12,7 @@ class ExamItemController extends Controller
 {
     public function index(Exam $exam): JsonResponse
     {
-        return response()->json($exam->items);
+        return response()->json(['data' => $exam->items]);
     }
 
     public function store(Request $request, Exam $exam): JsonResponse
@@ -96,13 +97,13 @@ class ExamItemController extends Controller
         ], 201);
     }
 
-    public function update(Request $request, Exam $exam, $itemId): JsonResponse
+    public function update(Request $request, ExamItem $examItem): JsonResponse
     {
+        $exam = $examItem->exam;
+
         if (in_array($exam->status, ['active', 'archived'])) {
             return response()->json(['message' => 'Cannot modify items of an active or archived exam.'], 422);
         }
-
-        $item = $exam->items()->findOrFail($itemId);
 
         $payload = $request->validate([
             'type' => 'sometimes|string|in:mcq,truefalse,fillblank,shortanswer,essay,matching',
@@ -120,9 +121,9 @@ class ExamItemController extends Controller
         ]);
 
         // Merge current item data with incoming payload so helpers can operate on a full dataset
-        $data = array_merge($item->toArray(), $payload);
+        $data = array_merge($examItem->toArray(), $payload);
 
-        $type = $payload['type'] ?? $item->type;
+        $type = $payload['type'] ?? $examItem->type;
 
         switch ($type) {
             case 'mcq':
@@ -165,16 +166,16 @@ class ExamItemController extends Controller
 
         $updateData = [
             'type' => $type,
-            'level' => $data['level'] ?? $item->level,
-            'question' => $data['question'] ?? $item->question,
-            'points' => $data['points'] ?? $item->points,
+            'level' => $data['level'] ?? $examItem->level,
+            'question' => $data['question'] ?? $examItem->question,
+            'points' => $data['points'] ?? $examItem->points,
             'expected_answer' => $data['expected_answer'] ?? null,
             'answer' => $data['answer'] ?? null,
             'options' => $data['options'] ?? null,
             'pairs' => $data['pairs'] ?? null,
         ];
 
-        $item->update($updateData);
+        $examItem->update($updateData);
 
         // Recalculate total points for the exam
         $total = $exam->items()->sum('points');
@@ -183,17 +184,18 @@ class ExamItemController extends Controller
         }
 
         return response()->json([
-            'item' => $item->fresh(),
+            'item' => $examItem->fresh(),
         ]);
     }
 
-    public function destroy(Exam $exam, $itemId): JsonResponse
+    public function destroy($itemId): JsonResponse
     {
+        $item = ExamItem::findOrFail($itemId);
+        $exam = $item->exam;
+
         if (in_array($exam->status, ['active', 'archived'])) {
             return response()->json(['message' => 'Cannot delete items of an active or archived exam.'], 422);
         }
-
-        $item = $exam->items()->findOrFail($itemId);
 
         $item->delete();
 
