@@ -11,10 +11,11 @@ Route::prefix('teacher')->middleware(['auth:sanctum'])->group(function () {
     Route::patch('exams/{exam}/status', [ExamController::class, 'updateStatus']);
 
 
-    Route::get('exam-items/{exam}', [ExamItemController::class, 'index']);
-    Route::post('exam-items/{exam}', [ExamItemController::class, 'store']);
-    Route::put('exam-items/{examItem}', [ExamItemController::class, 'update']);
-    Route::delete('exam-items/{examItem}', [ExamItemController::class, 'destroy']);
+    Route::get('exams/{exam}/items', [ExamItemController::class, 'index']);
+    Route::post('exams/{exam}/items', [ExamItemController::class, 'store']);
+    Route::put('exams/items/{examItem}', [ExamItemController::class, 'update']);
+    Route::patch('exams/items/{examItem}', [ExamItemController::class, 'update']);
+    Route::delete('exams/items/{examItem}', [ExamItemController::class, 'destroy']);
 
     Route::get('exams/{exam}/takenExams', [TakenExamController::class, 'index']);
     Route::get('exams/{exam}/takenExams/{takenExam}', [TakenExamController::class, 'show']);

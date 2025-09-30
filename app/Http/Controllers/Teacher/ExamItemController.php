@@ -184,7 +184,7 @@ class ExamItemController extends Controller
         }
 
         return response()->json([
-            'item' => $examItem->fresh(),
+            'data' => $examItem->fresh(),
         ]);
     }
 
