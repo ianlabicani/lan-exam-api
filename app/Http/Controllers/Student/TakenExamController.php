@@ -80,9 +80,9 @@ class TakenExamController extends Controller
      */
     public function show(int $id)
     {
-        $takenExam = TakenExam::with('exam', 'answers')->findOrFail($id);
+        $takenExam = TakenExam::with('exam.items', 'answers')->findOrFail($id);
 
-        return response()->json(['data' => $takenExam]);
+        return response()->json(['takenExam' => $takenExam]);
     }
 
 }
