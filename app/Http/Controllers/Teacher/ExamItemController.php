@@ -31,6 +31,7 @@ class ExamItemController extends Controller
      */
     public function store(Request $request, $examId)
     {
+
         // Verify the exam belongs to the authenticated teacher
         $exam = Exam::whereHas('teachers', function ($query) {
             $query->where('teacher_id', Auth::id());
@@ -38,8 +39,9 @@ class ExamItemController extends Controller
 
         // Check if exam can be edited (only draft and ready status)
         if (! $exam->canBeEdited()) {
-            return redirect()->back()
-                ->with('error', 'Cannot add items to this exam. Only exams in Draft or Ready status can be edited.');
+            return response()->json([
+                'error' => 'Cannot add items to this exam. Only exams in Draft or Ready status can be edited.',
+            ], 422);
         }
 
         $payload = $request->validate([
@@ -133,8 +135,9 @@ class ExamItemController extends Controller
 
         // Check if exam can be edited (only draft and ready status)
         if (! $exam->canBeEdited()) {
-            return redirect()->back()
-                ->with('error', 'Cannot modify items of this exam. Only exams in Draft or Ready status can be edited.');
+            return response()->json([
+                'error' => 'Cannot modify items of this exam. Only exams in Draft or Ready status can be edited.',
+            ], 422);
         }
 
         $payload = $request->validate([
@@ -215,17 +218,23 @@ class ExamItemController extends Controller
             $exam->update(['total_points' => $total]);
         }
 
-        return redirect()->route('teacher.exams.show', ['id' => $exam->id, 'tab' => 'items'])
-            ->with('success', 'Question updated successfully!');
+        return response()->json([
+            'data' => $examItem->fresh(),
+        ]);
     }
 
     /**
      * Remove the specified exam item.
      */
-    public function destroy(Request $request, $itemId)
+    public function destroy(Request $request, $examId, $itemId)
     {
         $examItem = ExamItem::findOrFail($itemId);
         $exam = $examItem->exam;
+
+        // Verify the exam ID matches
+        if ($exam->id != $examId) {
+            abort(404, 'Exam item not found');
+        }
 
         // Verify the exam belongs to the authenticated teacher
         if (! $exam->teachers()->where('teacher_id', Auth::id())->exists()) {
@@ -263,9 +272,9 @@ class ExamItemController extends Controller
         $options = $request->input('options', []);
 
         if (empty($options) || ! is_array($options)) {
-            return ['_error' => redirect()->back()
-                ->withErrors(['options' => 'Options are required for multiple choice questions.'])
-                ->withInput()];
+            return ['_error' => response()->json([
+                'error' => 'Options are required for multiple choice questions.',
+            ], 422)];
         }
 
         // Normalize the correct field - convert "1" string to true boolean
@@ -280,9 +289,9 @@ class ExamItemController extends Controller
         $hasCorrect = collect($normalizedOptions)->contains(fn ($o) => $o['correct'] === true);
 
         if (! $hasCorrect) {
-            return ['_error' => redirect()->back()
-                ->withErrors(['options' => 'At least one option must be marked correct.'])
-                ->withInput()];
+            return ['_error' => response()->json([
+                'error' => 'At least one option must be marked correct.',
+            ], 422)];
         }
 
         $data['options'] = $normalizedOptions;
@@ -293,12 +302,12 @@ class ExamItemController extends Controller
 
     private function prepareTrueFalse(Request $request, array $data): array
     {
-        $value = $request->input('expected_answer', $data['expected_answer'] ?? null);
+        $value = $request->input('answer', $data['answer'] ?? null);
 
         if ($value === null) {
-            return ['_error' => redirect()->back()
-                ->withErrors(['expected_answer' => 'Answer is required for true/false questions.'])
-                ->withInput()];
+            return ['_error' => response()->json([
+                'error' => 'Answer is required for true/false questions.',
+            ], 422)];
         }
 
         if ($value === true) {
@@ -306,20 +315,20 @@ class ExamItemController extends Controller
         } elseif ($value === false) {
             $value = 'false';
         } elseif (! is_string($value)) {
-            return ['_error' => redirect()->back()
-                ->withErrors(['expected_answer' => 'Answer must be the string "true" or "false".'])
-                ->withInput()];
+            return ['_error' => response()->json([
+                'error' => 'Answer must be the string "true" or "false".',
+            ], 422)];
         }
 
         $normalized = strtolower(trim((string) $value));
         if (! in_array($normalized, ['true', 'false'], true)) {
-            return ['_error' => redirect()->back()
-                ->withErrors(['expected_answer' => 'Answer must be the string "true" or "false".'])
-                ->withInput()];
+            return ['_error' => response()->json([
+                'error' => 'Answer must be the string "true" or "false".',
+            ], 422)];
         }
 
-        $data['expected_answer'] = $normalized;
-        $data['answer'] = null;
+        $data['answer'] = $normalized;
+        $data['expected_answer'] = null;
         $data['options'] = null;
         $data['pairs'] = null;
 
@@ -329,9 +338,9 @@ class ExamItemController extends Controller
     private function prepareEssay(array $data): array
     {
         if (empty($data['expected_answer'])) {
-            return ['_error' => redirect()->back()
-                ->withErrors(['expected_answer' => 'Expected answer (reference) is required for essay questions.'])
-                ->withInput()];
+            return ['_error' => response()->json([
+                'error' => 'Expected answer (reference) is required for essay questions.',
+            ], 422)];
         }
         unset($data['answer'], $data['options']);
 
@@ -341,9 +350,9 @@ class ExamItemController extends Controller
     private function prepareFillBlank(array $data): array
     {
         if (empty($data['expected_answer'])) {
-            return ['_error' => redirect()->back()
-                ->withErrors(['expected_answer' => 'Expected answer is required for fill-in-the-blank questions.'])
-                ->withInput()];
+            return ['_error' => response()->json([
+                'error' => 'Expected answer is required for fill-in-the-blank questions.',
+            ], 422)];
         }
         unset($data['answer'], $data['options'], $data['pairs']);
 
@@ -353,9 +362,9 @@ class ExamItemController extends Controller
     private function prepareShortAnswer(array $data): array
     {
         if (empty($data['expected_answer'])) {
-            return ['_error' => redirect()->back()
-                ->withErrors(['expected_answer' => 'Expected answer is required for short answer questions.'])
-                ->withInput()];
+            return ['_error' => response()->json([
+                'error' => 'Expected answer is required for short answer questions.',
+            ], 422)];
         }
         unset($data['answer'], $data['options'], $data['pairs']);
 
@@ -367,9 +376,9 @@ class ExamItemController extends Controller
         $pairs = $request->input('pairs');
         // Make pairs optional/nullable. If provided, ensure it's an array; otherwise set to null.
         if ($pairs !== null && ! is_array($pairs)) {
-            return ['_error' => redirect()->back()
-                ->withErrors(['pairs' => 'Pairs must be an array when provided.'])
-                ->withInput()];
+            return ['_error' => response()->json([
+                'error' => 'Pairs must be an array when provided.',
+            ], 422)];
         }
         $data['pairs'] = $pairs ?: null;
         unset($data['answer'], $data['options'], $data['expected_answer']);
