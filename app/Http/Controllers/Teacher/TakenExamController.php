@@ -37,7 +37,15 @@ class TakenExamController extends Controller
         // Calculate analytics
         $analytics = $this->calculateAnalytics($exam, $takenExams);
 
-        return view('teacher.exams.takers', compact('exam', 'takenExams', 'analytics'));
+        return response()->json(
+            [
+                'data' => [
+                    'exam' => $exam,
+                    'takenExams' => $takenExams,
+                    'analytics' => $analytics,
+                ],
+            ]
+        );
     }
 
     /**
