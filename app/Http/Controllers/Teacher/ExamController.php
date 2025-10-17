@@ -216,12 +216,17 @@ class ExamController extends Controller
      */
     public function edit($id)
     {
-        $exam = Exam::whereHas('teachers', function ($query) {
-            $query->where('teacher_id', Auth::id());
-        })
+        $exam = Exam::with(['items'])
+            ->whereHas('teachers', function ($query) {
+                $query->where('teacher_id', Auth::id());
+            })
             ->findOrFail($id);
 
-        return view('teacher.exams.edit', compact('exam'));
+        $exam->makeHidden(['pivot']);
+
+        return response()->json([
+            'exam' => $exam,
+        ]);
     }
 
     /**
