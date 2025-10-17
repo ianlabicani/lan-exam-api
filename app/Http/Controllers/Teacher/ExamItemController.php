@@ -10,6 +10,22 @@ use Illuminate\Support\Facades\Auth;
 
 class ExamItemController extends Controller
 {
+    public function index(Request $request)
+    {
+        $examId = $request->route('examId');
+
+        // Verify the exam belongs to the authenticated teacher
+        $exam = Exam::whereHas('teachers', function ($query) {
+            $query->where('teacher_id', Auth::id());
+        })->findOrFail($examId);
+
+        $items = $exam->items()->get();
+
+        return response()->json([
+            'data' => $items,
+        ]);
+    }
+
     /**
      * Store a newly created exam item.
      */
@@ -97,8 +113,9 @@ class ExamItemController extends Controller
             $exam->update(['total_points' => $total]);
         }
 
-        return redirect()->route('teacher.exams.show', ['id' => $exam->id, 'tab' => 'items'])
-            ->with('success', 'Question added successfully!');
+        return response()->json([
+            'data' => $item,
+        ]);
     }
 
     /**
@@ -205,20 +222,21 @@ class ExamItemController extends Controller
     /**
      * Remove the specified exam item.
      */
-    public function destroy($examId, $itemId)
+    public function destroy(Request $request, $itemId)
     {
-        // Verify the exam belongs to the authenticated teacher
-        $exam = Exam::whereHas('teachers', function ($query) {
-            $query->where('teacher_id', Auth::id());
-        })->findOrFail($examId);
+        $examItem = ExamItem::findOrFail($itemId);
+        $exam = $examItem->exam;
 
-        $examItem = ExamItem::where('exam_id', $examId)
-            ->findOrFail($itemId);
+        // Verify the exam belongs to the authenticated teacher
+        if (! $exam->teachers()->where('teacher_id', Auth::id())->exists()) {
+            abort(403, 'Unauthorized');
+        }
 
         // Check if exam can be edited (only draft and ready status)
         if (! $exam->canBeEdited()) {
-            return redirect()->back()
-                ->with('error', 'Cannot delete items from this exam. Only exams in Draft or Ready status can be edited.');
+            return response()->json([
+                'error' => 'Cannot delete items from this exam. Only exams in Draft or Ready status can be edited.',
+            ], 422);
         }
 
         $examItem->delete();
@@ -229,8 +247,13 @@ class ExamItemController extends Controller
             $exam->update(['total_points' => $total]);
         }
 
-        return redirect()->route('teacher.exams.show', ['id' => $exam->id, 'tab' => 'items'])
-            ->with('success', 'Question deleted successfully!');
+        return response()->json([
+            'message' => 'Question deleted successfully!',
+            'data' => [
+                'exam_id' => $exam->id,
+                'total_points' => $total,
+            ],
+        ]);
     }
 
     // Preparation methods for each question type
@@ -270,11 +293,11 @@ class ExamItemController extends Controller
 
     private function prepareTrueFalse(Request $request, array $data): array
     {
-        $value = $request->input('answer', $data['answer'] ?? null);
+        $value = $request->input('expected_answer', $data['expected_answer'] ?? null);
 
         if ($value === null) {
             return ['_error' => redirect()->back()
-                ->withErrors(['answer' => 'Answer is required for true/false questions.'])
+                ->withErrors(['expected_answer' => 'Answer is required for true/false questions.'])
                 ->withInput()];
         }
 
@@ -284,18 +307,19 @@ class ExamItemController extends Controller
             $value = 'false';
         } elseif (! is_string($value)) {
             return ['_error' => redirect()->back()
-                ->withErrors(['answer' => 'Answer must be the string "true" or "false".'])
+                ->withErrors(['expected_answer' => 'Answer must be the string "true" or "false".'])
                 ->withInput()];
         }
 
         $normalized = strtolower(trim((string) $value));
         if (! in_array($normalized, ['true', 'false'], true)) {
             return ['_error' => redirect()->back()
-                ->withErrors(['answer' => 'Answer must be the string "true" or "false".'])
+                ->withErrors(['expected_answer' => 'Answer must be the string "true" or "false".'])
                 ->withInput()];
         }
 
-        $data['answer'] = $normalized;
+        $data['expected_answer'] = $normalized;
+        $data['answer'] = null;
         $data['options'] = null;
         $data['pairs'] = null;
 

@@ -199,16 +199,18 @@ class ExamController extends Controller
             ? round($takers->where('submitted_at', '!=', null)->avg('total_points'), 2)
             : 0;
 
-        return view('teacher.exams.show', compact(
-            'exam',
-            'examItems',
-            'takers',
-            'totalTakers',
-            'completedCount',
-            'gradedCount',
-            'pendingGradingCount',
-            'averageScore'
-        ));
+        return response()->json([
+            'data' => [
+                'exam' => $exam,
+                'examItems' => $examItems,
+                'takers' => $takers,
+                'totalTakers' => $totalTakers,
+                'completedCount' => $completedCount,
+                'gradedCount' => $gradedCount,
+                'pendingGradingCount' => $pendingGradingCount,
+                'averageScore' => $averageScore,
+            ],
+        ]);
     }
 
     /**
@@ -278,8 +280,10 @@ class ExamController extends Controller
 
         $exam->update($payload);
 
-        return redirect()->route('teacher.exams.show', $exam->id)
-            ->with('success', 'Exam updated successfully!');
+        return response()->json([
+            'exam' => $exam,
+        ]);
+
     }
 
     /**
