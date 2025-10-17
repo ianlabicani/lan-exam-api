@@ -37,7 +37,7 @@ class ExamController extends Controller
             $searchTerm = $request->input('search');
             $query->where(function ($q) use ($searchTerm) {
                 $q->where('title', 'like', "%{$searchTerm}%")
-                  ->orWhere('description', 'like', "%{$searchTerm}%");
+                    ->orWhere('description', 'like', "%{$searchTerm}%");
             });
         }
 
@@ -48,12 +48,14 @@ class ExamController extends Controller
 
         // Year filter
         if ($request->filled('year')) {
-            $query->whereJsonContains('year', $request->input('year'));
+            $year = $request->input('year');
+            $query->whereRaw('JSON_CONTAINS(year, ?)', [$year]);
         }
 
         // Section filter
         if ($request->filled('section')) {
-            $query->whereJsonContains('sections', $request->input('section'));
+            $section = $request->input('section');
+            $query->whereRaw('JSON_CONTAINS(sections, ?)', [json_encode($section)]);
         }
 
         // Date range filter
@@ -65,19 +67,26 @@ class ExamController extends Controller
             $query->whereDate('starts_at', '<=', $request->input('date_to'));
         }
 
-        $exams = $query->orderBy('created_at', 'desc')
-            ->get()
-            ->makeHidden(['pivot']);
+        // Pagination
+        $perPage = $request->input('per_page', 10);
+        $paginated = $query->orderBy('created_at', 'desc')
+            ->paginate($perPage)
+            ->appends($request->query());
 
-        return view('teacher.exams.index', compact('exams'));
-    }
+        $exams = $paginated->items();
+        foreach ($exams as $exam) {
+            $exam->makeHidden(['pivot']);
+        }
 
-    /**
-     * Show the form for creating a new exam.
-     */
-    public function create()
-    {
-        return view('teacher.exams.create');
+        return response()->json([
+            'data' => $exams,
+            'meta' => [
+                'total' => $paginated->total(),
+                'per_page' => $paginated->perPage(),
+                'current_page' => $paginated->currentPage(),
+                'last_page' => $paginated->lastPage(),
+            ],
+        ]);
     }
 
     /**
@@ -145,7 +154,7 @@ class ExamController extends Controller
             'takenExams' => function ($query) {
                 $query->with(['user', 'answers'])
                     ->orderBy('submitted_at', 'desc');
-            }
+            },
         ])
             ->whereHas('teachers', function ($query) {
                 $query->where('teacher_id', Auth::id());
