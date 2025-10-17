@@ -6,12 +6,11 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
-use Laravel\Sanctum\HasApiTokens;
 
 class User extends Authenticatable
 {
     /** @use HasFactory<\Database\Factories\UserFactory> */
-    use HasFactory, Notifiable, HasApiTokens;
+    use HasFactory, Notifiable;
 
     /**
      * The attributes that are mass assignable.
@@ -49,11 +48,33 @@ class User extends Authenticatable
 
     public function roles()
     {
-        return $this->belongsToMany(Role::class);
+        return $this->belongsToMany(Role::class)->withTimestamps();
     }
 
-    public function hasRole($role): bool
+    public function hasRole($roleName)
     {
-        return $this->roles()->where('name', $role)->exists();
+        return $this->roles()->where('name', $roleName)->exists();
+    }
+
+    public function hasAnyRole($roles)
+    {
+        return $this->roles()->whereIn('name', $roles)->exists();
+    }
+
+    public function exams()
+    {
+        return $this->belongsToMany(Exam::class, 'exam_teacher', 'teacher_id', 'exam_id')->withTimestamps();
+    }
+
+    public function takenExams()
+    {
+        return $this->hasMany(TakenExam::class);
+    }
+
+    public function examsTaken()
+    {
+        return $this->belongsToMany(Exam::class, 'taken_exams', 'user_id', 'exam_id')
+            ->withPivot(['started_at', 'submitted_at', 'total_points'])
+            ->withTimestamps();
     }
 }
