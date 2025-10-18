@@ -19,6 +19,7 @@ Route::middleware(['auth:sanctum', 'verified'])->prefix('teacher')->name('teache
         Route::get('/{id}', [ExamController::class, 'show'])->name('show');
         Route::get('/{id}/edit', [ExamController::class, 'edit'])->name('edit');
         Route::put('/{id}', [ExamController::class, 'update'])->name('update');
+        Route::patch('/{id}', [ExamController::class, 'update'])->name('update');
         Route::patch('/{id}/status', [ExamController::class, 'updateStatus'])->name('updateStatus');
         Route::delete('/{id}', [ExamController::class, 'destroy'])->name('destroy');
         Route::get('/{id}/takers', [ExamController::class, 'getExamTakers'])->name('takers');
