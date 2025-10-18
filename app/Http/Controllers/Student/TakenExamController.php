@@ -51,8 +51,9 @@ class TakenExamController extends Controller
         $examId = $request->input('exam_id');
 
         if (! $examId) {
-            return redirect()->route('student.exams.index')
-                ->with('error', 'Exam ID is required.');
+            return response()->json([
+                'message' => 'Exam ID is required.',
+            ], 422);
         }
 
         $exam = Exam::with('items')->findOrFail($examId);
@@ -60,8 +61,9 @@ class TakenExamController extends Controller
 
         // Check if exam is available
         if ($exam->status !== 'ongoing') {
-            return redirect()->route('student.exams.index')
-                ->with('error', 'This exam is not currently available.');
+            return response()->json([
+                'message' => 'This exam is not currently available.',
+            ], 403);
         }
 
         // Check if already taken
@@ -70,13 +72,18 @@ class TakenExamController extends Controller
             ->first();
 
         if ($existingTakenExam && $existingTakenExam->submitted_at) {
-            return redirect()->route('student.taken-exams.show', $existingTakenExam->id)
-                ->with('info', 'You have already submitted this exam.');
+            return response()->json([
+                'message' => 'You have already submitted this exam.',
+                'taken_exam_id' => $existingTakenExam->id,
+            ], 403);
         }
 
-        // If ongoing, redirect to continue
+        // If ongoing, return the existing taken exam
         if ($existingTakenExam) {
-            return redirect()->route('student.taken-exams.continue', $existingTakenExam->id);
+            return response()->json([
+                'taken_exam_id' => $existingTakenExam->id,
+                'message' => 'Exam already in progress.',
+            ]);
         }
 
         // Create new taken exam
@@ -91,9 +98,12 @@ class TakenExamController extends Controller
         $takenExam->load(['exam.items', 'answers']);
 
         return response()->json([
-            'exam' => $exam,
-            'taken_exam' => $takenExam,
-        ]);
+            'data' => [
+                'exam' => $exam,
+                'taken_exam' => $takenExam,
+            ],
+            'message' => 'Exam created successfully.',
+        ], 201);
     }
 
     /**

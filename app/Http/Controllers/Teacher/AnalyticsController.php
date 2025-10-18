@@ -227,15 +227,17 @@ class AnalyticsController extends Controller
             ];
         });
 
-        return view('teacher.analytics.exam-details', compact(
-            'exam',
-            'totalSubmissions',
-            'averageScore',
-            'highestScore',
-            'lowestScore',
-            'averagePercentage',
-            'scoreDistribution',
-            'questionAnalysis'
-        ));
+        return response()->json([
+            'data' => [
+                'exam' => $exam,
+                'totalSubmissions' => $totalSubmissions,
+                'averageScore' => $averageScore,
+                'highestScore' => $highestScore,
+                'lowestScore' => $lowestScore,
+                'averagePercentage' => $averagePercentage,
+                'scoreDistribution' => $scoreDistribution,
+                'questionAnalysis' => $questionAnalysis,
+            ],
+        ]);
     }
 }

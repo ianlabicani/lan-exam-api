@@ -49,7 +49,7 @@ class ExamController extends Controller
         // Year filter
         if ($request->filled('year')) {
             $year = $request->input('year');
-            $query->whereRaw('JSON_CONTAINS(year, ?)', [$year]);
+            $query->whereRaw('JSON_CONTAINS(year, ?)', [json_encode($year)]);
         }
 
         // Section filter
@@ -150,18 +150,15 @@ class ExamController extends Controller
     }
 
     /**
-     * Display the specified exam.
+     * Display the specified exam with its items.
+     * Returns only the exam and its items - no takers or analytics data.
+     * Takers and analytics should be fetched via separate endpoints.
      */
     public function show($id)
     {
-        // OPTIMIZED: Single query with all necessary relationships eager loaded
         $exam = Exam::with([
             'items' => function ($query) {
                 $query->orderBy('id', 'asc');
-            },
-            'takenExams' => function ($query) {
-                $query->with(['user', 'answers'])
-                    ->orderBy('submitted_at', 'desc');
             },
         ])
             ->whereHas('teachers', function ($query) {
@@ -169,55 +166,8 @@ class ExamController extends Controller
             })
             ->findOrFail($id);
 
-        $examItems = $exam->items;
-
-        // Use already loaded takenExams relationship (no additional query)
-        $takers = $exam->takenExams->map(function ($takenExam) use ($exam) {
-            // Calculate percentage
-            $percentage = $exam->total_points > 0
-                ? round(($takenExam->total_points / $exam->total_points) * 100, 2)
-                : 0;
-
-            // Count answered questions (already loaded via eager loading)
-            $answeredCount = $takenExam->answers->count();
-            $totalQuestions = $exam->items->count();
-
-            return [
-                'id' => $takenExam->id,
-                'user' => $takenExam->user,
-                'started_at' => $takenExam->started_at,
-                'submitted_at' => $takenExam->submitted_at,
-                'total_points' => $takenExam->total_points,
-                'percentage' => $percentage,
-                'status' => $takenExam->status,
-                'answered_count' => $answeredCount,
-                'total_questions' => $totalQuestions,
-                'duration' => $takenExam->started_at && $takenExam->submitted_at
-                    ? $takenExam->started_at->diffInMinutes($takenExam->submitted_at)
-                    : null,
-            ];
-        });
-
-        // Calculate statistics
-        $totalTakers = $takers->count();
-        $completedCount = $takers->where('submitted_at', '!=', null)->count();
-        $gradedCount = $takers->where('status', 'graded')->count();
-        $pendingGradingCount = $takers->where('status', 'submitted')->count();
-        $averageScore = $completedCount > 0
-            ? round($takers->where('submitted_at', '!=', null)->avg('total_points'), 2)
-            : 0;
-
         return response()->json([
-            'data' => [
-                'exam' => $exam,
-                'examItems' => $examItems,
-                'takers' => $takers,
-                'totalTakers' => $totalTakers,
-                'completedCount' => $completedCount,
-                'gradedCount' => $gradedCount,
-                'pendingGradingCount' => $pendingGradingCount,
-                'averageScore' => $averageScore,
-            ],
+            'data' => $exam,
         ]);
     }
 
