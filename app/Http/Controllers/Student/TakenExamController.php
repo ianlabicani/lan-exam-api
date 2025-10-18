@@ -153,11 +153,12 @@ class TakenExamController extends Controller
         $exam = $takenExam->exam;
 
         // Check if the student's submission has been graded
-        // Only show results if their submission status is 'graded'
         if ($takenExam->status !== 'graded') {
             return response()->json([
                 'pending' => true,
                 'message' => 'Exam is pending grading.',
+                'takenExam' => $takenExam,
+                'exam' => $exam,
             ], 202);
         }
 
@@ -166,6 +167,8 @@ class TakenExamController extends Controller
             return response()->json([
                 'pending' => true,
                 'message' => 'Exam is not yet closed.',
+                'takenExam' => $takenExam,
+                'exam' => $exam,
             ], 202);
         }
 
@@ -375,34 +378,10 @@ class TakenExamController extends Controller
 
         DB::beginTransaction();
         try {
-            $exam = $takenExam->exam;
-
-            // Auto-grade objective questions
-            foreach ($exam->items as $item) {
-                $answer = TakenExamAnswer::where('taken_exam_id', $takenExam->id)
-                    ->where('exam_item_id', $item->id)
-                    ->first();
-
-                if ($answer) {
-                    $pointsEarned = $this->gradeAnswer($item, $answer->answer);
-                    $answer->update(['points_earned' => $pointsEarned]);
-                }
-            }
-
-            // Calculate total points (only count non-null values, as null means manual grading pending)
-            $totalPoints = $takenExam->answers()->whereNotNull('points_earned')->sum('points_earned');
-
-            // Check if there are any essay or short answer questions
-            $hasManualGradingItems = $exam->items->whereIn('type', ['essay', 'shortanswer'])->count() > 0;
-
-            // Set status based on whether manual grading is needed
-            $status = $hasManualGradingItems ? 'submitted' : 'graded';
-
-            // Mark as submitted
+            // Mark as submitted without grading
             $takenExam->update([
                 'submitted_at' => now(),
-                'total_points' => $totalPoints,
-                'status' => $status,
+                'status' => 'submitted',
             ]);
 
             DB::commit();

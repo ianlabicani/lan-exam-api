@@ -36,11 +36,11 @@ class ExamController extends Controller
                 'takenExams' => function ($query) use ($user) {
                     // Only load this user's taken exam
                     $query->where('user_id', $user->id);
-                }
+                },
             ])
             ->orderBy('starts_at', 'desc')
             ->get()
-            ->map(function ($exam) use ($user) {
+            ->map(function ($exam) {
                 // Check if student has already taken this exam
                 $takenExam = $exam->takenExams->first();
 
@@ -51,7 +51,7 @@ class ExamController extends Controller
                 return $exam;
             });
 
-    return response()->json(['data' => $exams]);
+        return response()->json(['data' => $exams]);
     }
 
     /**
@@ -136,7 +136,7 @@ class ExamController extends Controller
     }
 
     /**
-     * Submit exam and calculate score
+     * Submit exam
      */
     public function submit(Request $request, $id)
     {
@@ -154,25 +154,10 @@ class ExamController extends Controller
 
         DB::beginTransaction();
         try {
-            // Auto-grade objective questions
-            foreach ($exam->items as $item) {
-                $answer = TakenExamAnswer::where('taken_exam_id', $takenExam->id)
-                    ->where('exam_item_id', $item->id)
-                    ->first();
-
-                if ($answer) {
-                    $pointsEarned = $this->gradeAnswer($item, $answer->answer);
-                    $answer->update(['points_earned' => $pointsEarned]);
-                }
-            }
-
-            // Calculate total points
-            $totalPoints = $takenExam->answers()->sum('points_earned');
-
-            // Mark as submitted
+            // Mark as submitted without grading
             $takenExam->update([
                 'submitted_at' => now(),
-                'total_points' => $totalPoints,
+                'status' => 'submitted',
             ]);
 
             DB::commit();
@@ -180,14 +165,13 @@ class ExamController extends Controller
             return response()->json([
                 'success' => true,
                 'message' => 'Exam submitted successfully!',
-                'total_points' => $totalPoints,
             ]);
 
         } catch (\Exception $e) {
             DB::rollBack();
 
             return response()->json([
-                'error' => 'Failed to submit exam. Please try again.'
+                'error' => 'Failed to submit exam. Please try again.',
             ], 500);
         }
     }
@@ -207,6 +191,14 @@ class ExamController extends Controller
 
         if (! $takenExam->submitted_at) {
             return response()->json(['info' => 'Please complete and submit the exam first.'], 403);
+        }
+
+        // Only show results if graded
+        if ($takenExam->status !== 'graded') {
+            return response()->json([
+                'pending' => true,
+                'message' => 'Your exam is pending grading. Results will be available soon.',
+            ], 202);
         }
 
         // Calculate statistics
@@ -272,12 +264,12 @@ class ExamController extends Controller
 
             case 'matching':
                 // Score each correct pair individually (1 point per pair)
-                if (!is_string($studentAnswer)) {
+                if (! is_string($studentAnswer)) {
                     return 0;
                 }
 
                 $studentPairs = json_decode($studentAnswer, true);
-                if (!is_array($studentPairs) || !is_array($item->pairs)) {
+                if (! is_array($studentPairs) || ! is_array($item->pairs)) {
                     return 0;
                 }
 
