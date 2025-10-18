@@ -290,8 +290,16 @@ class TakenExamController extends Controller
                 : null;
 
             if ($studentAnswer) {
-                $studentResponse = $studentAnswer->answer;
-                $isCorrect = $this->checkAnswer($item, $studentAnswer->answer, $correctAnswer);
+                // For true/false items, normalize the student answer to boolean/null so
+                // the API payload is consistent and the frontend can rely on booleans.
+                if ($item->type === 'truefalse') {
+                    $studentResponse = $this->normalizeBool($studentAnswer->answer);
+                } else {
+                    $studentResponse = $studentAnswer->answer;
+                }
+
+                // Use the (possibly normalized) student response when checking correctness.
+                $isCorrect = $this->checkAnswer($item, $studentResponse, $correctAnswer);
             }
 
             return [
