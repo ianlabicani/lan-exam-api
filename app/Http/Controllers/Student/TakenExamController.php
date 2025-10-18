@@ -269,14 +269,21 @@ class TakenExamController extends Controller
             'answer' => 'required',
         ]);
 
+        $answer = $validated['answer'];
+
+        // JSON-encode array answers (for matching, multiple choice arrays, etc.)
+        if (is_array($answer)) {
+            $answer = json_encode($answer);
+        }
+
         // Save or update answer
-        $answer = TakenExamAnswer::updateOrCreate(
+        $answerRecord = TakenExamAnswer::updateOrCreate(
             [
                 'taken_exam_id' => $takenExam->id,
                 'exam_item_id' => $validated['item_id'],
             ],
             [
-                'answer' => $validated['answer'],
+                'answer' => $answer,
             ]
         );
 
@@ -313,13 +320,20 @@ class TakenExamController extends Controller
             $savedCount = 0;
 
             foreach ($validated['answers'] as $answerData) {
+                $answer = $answerData['answer'];
+
+                // JSON-encode array answers (for matching, multiple choice arrays, etc.)
+                if (is_array($answer)) {
+                    $answer = json_encode($answer);
+                }
+
                 TakenExamAnswer::updateOrCreate(
                     [
                         'taken_exam_id' => $takenExam->id,
                         'exam_item_id' => $answerData['item_id'],
                     ],
                     [
-                        'answer' => $answerData['answer'],
+                        'answer' => $answer,
                     ]
                 );
                 $savedCount++;
