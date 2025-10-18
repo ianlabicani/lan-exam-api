@@ -111,14 +111,18 @@ class ExamController extends Controller
         $years = array_values(array_filter($validated['year'], static fn ($v) => $v !== '' && $v !== null));
 
         if (empty($years)) {
-            return back()->withErrors(['year' => 'At least one year is required.'])->withInput();
+            return response()->json([
+                'message' => 'At least one year is required.',
+            ], 422);
         }
 
         // Normalize sections
         $sections = array_values(array_filter($validated['sections'], static fn ($v) => $v !== '' && $v !== null));
 
         if (empty($sections)) {
-            return back()->withErrors(['sections' => 'At least one section is required.'])->withInput();
+            return response()->json([
+                'message' => 'At least one section is required.',
+            ], 422);
         }
 
         $payload = [
@@ -136,9 +140,13 @@ class ExamController extends Controller
         // Create exam (via relation to auto-attach teacher)
         $exam = $request->user()->exams()->create($payload);
 
-        // Redirect to the exam show page to add items
-        return redirect()->route('teacher.exams.show', $exam->id)
-            ->with('success', 'Exam created successfully! Now you can add questions to your exam.');
+        // Return full exam with items
+        $exam = $exam->load(['items' => fn ($q) => $q->orderBy('id', 'asc')]);
+
+        return response()->json([
+            'data' => $exam,
+            'message' => 'Exam created successfully!',
+        ], 201);
     }
 
     /**
@@ -261,7 +269,9 @@ class ExamController extends Controller
             $years = array_values(array_filter($validated['year'], static fn ($v) => $v !== '' && $v !== null));
 
             if (empty($years)) {
-                return back()->withErrors(['year' => 'At least one year is required.'])->withInput();
+                return response()->json([
+                    'message' => 'At least one year is required.',
+                ], 422);
             }
 
             $payload['year'] = $years;
@@ -272,7 +282,9 @@ class ExamController extends Controller
             $sections = array_values(array_filter($validated['sections'], static fn ($v) => $v !== '' && $v !== null));
 
             if (empty($sections)) {
-                return back()->withErrors(['sections' => 'At least one section is required.'])->withInput();
+                return response()->json([
+                    'message' => 'At least one section is required.',
+                ], 422);
             }
 
             $payload['sections'] = $sections;
@@ -280,10 +292,13 @@ class ExamController extends Controller
 
         $exam->update($payload);
 
-        return response()->json([
-            'exam' => $exam,
-        ]);
+        // Return full exam with items
+        $exam = $exam->load(['items' => fn ($q) => $q->orderBy('id', 'asc')]);
 
+        return response()->json([
+            'data' => $exam,
+            'message' => 'Exam updated successfully!',
+        ]);
     }
 
     /**
@@ -301,12 +316,18 @@ class ExamController extends Controller
 
         // Use the transition method to ensure valid state changes
         if ($exam->transitionTo($validated['status'])) {
-            return redirect()->route('teacher.exams.show', $exam->id)
-                ->with('success', 'Exam status updated successfully!');
+            // Return full exam with items
+            $exam = $exam->load(['items' => fn ($q) => $q->orderBy('id', 'asc')]);
+
+            return response()->json([
+                'data' => $exam,
+                'message' => 'Exam status updated successfully!',
+            ]);
         }
 
-        return redirect()->route('teacher.exams.show', $exam->id)
-            ->with('error', 'Invalid status transition. Please follow the exam lifecycle.');
+        return response()->json([
+            'message' => 'Invalid status transition.',
+        ], 422);
     }
 
     /**
@@ -320,8 +341,9 @@ class ExamController extends Controller
 
         $exam->delete();
 
-        return redirect()->route('teacher.exams.index')
-            ->with('success', 'Exam deleted successfully!');
+        return response()->json([
+            'message' => 'Exam deleted successfully!',
+        ]);
     }
 
     /**
@@ -333,8 +355,18 @@ class ExamController extends Controller
             $query->where('teacher_id', Auth::id());
         })->findOrFail($id);
 
-        $takers = $exam->takenExams()->with('user')->get()->pluck('user')->filter();
+        $takers = $exam->takenExams()->with('user')->get()->map(function ($takenExam) {
+            return [
+                'id' => $takenExam->id,
+                'user' => $takenExam->user,
+                'started_at' => $takenExam->started_at,
+                'submitted_at' => $takenExam->submitted_at,
+                'status' => $takenExam->status,
+            ];
+        });
 
-        return view('teacher.exams.partials.takers', compact('exam', 'takers'));
+        return response()->json([
+            'data' => $takers,
+        ]);
     }
 }
