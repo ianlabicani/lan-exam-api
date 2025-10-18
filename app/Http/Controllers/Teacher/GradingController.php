@@ -15,9 +15,9 @@ use Illuminate\Support\Facades\Log;
 class GradingController extends Controller
 {
     /**
-     * Display the grading interface for a specific taken exam
+     * Display the grading interface for a specific taken exam (JSON API)
      */
-    public function show($id)
+    public function show($takenExamId)
     {
         $user = Auth::user();
 
@@ -26,20 +26,23 @@ class GradingController extends Controller
             'exam.items',
             'exam.teachers',
             'answers.item',
-            'user'
-        ])->findOrFail($id);
+            'user',
+        ])->findOrFail($takenExamId);
 
         // Verify the authenticated teacher is assigned to this exam
         $isAssignedTeacher = $takenExam->exam->teachers()->where('teacher_id', $user->id)->exists();
 
-        if (!$isAssignedTeacher) {
-            abort(403, 'Unauthorized access to this exam submission. You are not assigned as a teacher for this exam.');
+        if (! $isAssignedTeacher) {
+            return response()->json([
+                'error' => 'Unauthorized access to this exam submission. You are not assigned as a teacher for this exam.',
+            ], 403);
         }
 
         // Check if the exam has been submitted
-        if (!$takenExam->submitted_at) {
-            return redirect()->route('teacher.exams.show', $takenExam->exam_id)
-                ->with('error', 'This exam has not been submitted yet.');
+        if (! $takenExam->submitted_at) {
+            return response()->json([
+                'error' => 'This exam has not been submitted yet.',
+            ], 422);
         }
 
         $exam = $takenExam->exam;
@@ -49,7 +52,7 @@ class GradingController extends Controller
         $itemsNeedingGrading = $takenExam->answers->filter(function ($answer) {
             return in_array($answer->item->type, ['essay', 'shortanswer']) &&
                    $answer->points_earned === null;
-        });
+        })->values();
 
         // Calculate statistics
         $totalItems = $exam->items->count();
@@ -65,12 +68,12 @@ class GradingController extends Controller
 
         // Create a simple map of graded items (for manual grading items only)
         $gradedItems = $takenExam->answers
-            ->filter(function($answer) {
+            ->filter(function ($answer) {
                 return in_array($answer->item->type, ['essay', 'shortanswer']) &&
                        $answer->points_earned !== null;
             })
             ->pluck('exam_item_id')
-            ->mapWithKeys(function($itemId) {
+            ->mapWithKeys(function ($itemId) {
                 return [$itemId => true];
             });
 
@@ -79,20 +82,20 @@ class GradingController extends Controller
             ->orderBy('created_at', 'desc')
             ->get();
 
-        return view('teacher.grading.show', compact(
-            'takenExam',
-            'exam',
-            'student',
-            'itemsNeedingGrading',
-            'totalItems',
-            'autoGradedItems',
-            'manualGradedItems',
-            'pendingGradingItems',
-            'autoGradedScore',
-            'manualGradedScore',
-            'gradedItems',
-            'activityLogs'
-        ));
+        return response()->json([
+            'takenExam' => $takenExam,
+            'exam' => $exam,
+            'student' => $student,
+            'itemsNeedingGrading' => $itemsNeedingGrading,
+            'totalItems' => $totalItems,
+            'autoGradedItems' => $autoGradedItems,
+            'manualGradedItems' => $manualGradedItems,
+            'pendingGradingItems' => $pendingGradingItems,
+            'autoGradedScore' => $autoGradedScore,
+            'manualGradedScore' => $manualGradedScore,
+            'gradedItems' => $gradedItems,
+            'activityLogs' => $activityLogs,
+        ]);
     }
 
     /**
@@ -108,7 +111,7 @@ class GradingController extends Controller
         // Verify the authenticated teacher is assigned to this exam
         $isAssignedTeacher = $takenExam->exam->teachers()->where('teacher_id', $user->id)->exists();
 
-        if (!$isAssignedTeacher) {
+        if (! $isAssignedTeacher) {
             return response()->json(['error' => 'Unauthorized'], 403);
         }
 
@@ -120,7 +123,7 @@ class GradingController extends Controller
 
         // Validate the score
         $validated = $request->validate([
-            'teacher_score' => 'required|numeric|min:0|max:' . $answer->item->points,
+            'teacher_score' => 'required|numeric|min:0|max:'.$answer->item->points,
             'feedback' => 'nullable|string|max:1000',
         ]);
 
@@ -159,7 +162,7 @@ class GradingController extends Controller
         // Verify the authenticated teacher is assigned to this exam
         $isAssignedTeacher = $takenExam->exam->teachers()->where('teacher_id', $user->id)->exists();
 
-        if (!$isAssignedTeacher) {
+        if (! $isAssignedTeacher) {
             return response()->json(['error' => 'Unauthorized'], 403);
         }
 
@@ -203,7 +206,7 @@ class GradingController extends Controller
 
         } catch (\Exception $e) {
             DB::rollBack();
-            Log::error('Grade finalization failed: ' . $e->getMessage());
+            Log::error('Grade finalization failed: '.$e->getMessage());
 
             return response()->json([
                 'success' => false,
@@ -229,7 +232,7 @@ class GradingController extends Controller
     }
 
     /**
-     * Get list of all submissions that need grading
+     * Get list of all submissions that need grading (JSON API)
      */
     public function index()
     {
@@ -237,17 +240,16 @@ class GradingController extends Controller
 
         // OPTIMIZED: Eager load relationships and use more efficient filtering
         $pendingGrading = TakenExam::with([
-                'exam:id,title,total_points,status', // Select only needed columns
-                'user:id,name,email,year,section',
-                'answers' => function ($query) {
-                    // Only load answers that need grading
-                    $query->whereNull('points_earned')
-                        ->whereHas('item', function ($q) {
-                            $q->whereIn('type', ['essay', 'shortanswer']);
-                        })
-                        ->with('item:id,exam_id,type,question,points');
-                }
-            ])
+            'exam:id,title,total_points,status',
+            'user:id,name,email,year,section',
+            'answers' => function ($query) {
+                $query->whereNull('points_earned')
+                    ->whereHas('item', function ($q) {
+                        $q->whereIn('type', ['essay', 'shortanswer']);
+                    })
+                    ->with('item:id,exam_id,type,question,points');
+            },
+        ])
             ->whereHas('exam.teachers', function ($query) use ($user) {
                 $query->where('teacher_id', $user->id);
             })
@@ -260,7 +262,8 @@ class GradingController extends Controller
             ->orderBy('submitted_at', 'asc')
             ->get();
 
-        return view('teacher.grading.index', compact('pendingGrading'));
+        return response()->json([
+            'data' => $pendingGrading,
+        ]);
     }
 }
-

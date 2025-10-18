@@ -43,11 +43,11 @@ Route::middleware(['auth:sanctum', 'verified'])->prefix('teacher')->name('teache
         Route::get('/exam/{id}', [AnalyticsController::class, 'examDetails'])->name('exam-details');
     });
 
-    // Grading Routes
+    // Grading Routes (API endpoints for Angular frontend)
     Route::prefix('grading')->name('grading.')->group(function () {
         Route::get('/', [GradingController::class, 'index'])->name('index');
-        Route::get('/taken-exams/{id}', [GradingController::class, 'show'])->name('show');
-        Route::patch('/taken-exams/{takenExamId}/items/{itemId}/score', [GradingController::class, 'updateScore'])->name('updateScore');
-        Route::patch('/taken-exams/{id}/finalize', [GradingController::class, 'finalizeGrade'])->name('finalize');
+        Route::get('/{takenExamId}', [GradingController::class, 'show'])->name('show');
+        Route::patch('/{takenExamId}/items/{itemId}', [GradingController::class, 'updateScore'])->name('updateScore');
+        Route::post('/{takenExamId}/finalize', [GradingController::class, 'finalizeGrade'])->name('finalize');
     });
 });

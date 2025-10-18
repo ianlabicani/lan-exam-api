@@ -210,7 +210,36 @@ class TakenExamController extends Controller
     }
 
     /**
-     * Display details of a specific taken exam.
+     * Normalize common truthy/falsy representations to boolean or null when undetermined.
+     */
+    private function normalizeBool($val): ?bool
+    {
+        if ($val === null) {
+            return null;
+        }
+
+        if (is_bool($val)) {
+            return $val;
+        }
+
+        if (is_numeric($val)) {
+            return (int) $val === 1;
+        }
+
+        $s = strtolower(trim((string) $val));
+        if (in_array($s, ['true', '1', 'yes', 'y', 't'], true)) {
+            return true;
+        }
+        if (in_array($s, ['false', '0', 'no', 'n', 'f'], true)) {
+            return false;
+        }
+
+        // Undetermined
+        return null;
+    }
+
+    /**
+     * Display details of a specific taken exam (JSON API).
      */
     public function show($examId, $takenExamId)
     {
@@ -233,7 +262,12 @@ class TakenExamController extends Controller
         // Compare exam items with student answers - use already loaded exam.items
         $comparison = $this->compareAnswers($exam->items, $takenExam->answers);
 
-        return view('teacher.taken-exams.show', compact('exam', 'takenExam', 'comparison', 'activityLogs'));
+        return response()->json([
+            'exam' => $exam,
+            'takenExam' => $takenExam,
+            'comparison' => $comparison,
+            'activityLogs' => $activityLogs,
+        ]);
     }
 
     /**
@@ -248,14 +282,16 @@ class TakenExamController extends Controller
             $studentAnswer = $answerLookup->get($item->id);
             $correctAnswer = $this->getCorrectAnswer($item);
 
-            $isCorrect = false;
+            $isCorrect = null;
             $studentResponse = null;
-            $pointsEarned = 0;
+            // Keep points_earned null if not graded yet
+            $pointsEarned = $studentAnswer && $studentAnswer->points_earned !== null
+                ? $studentAnswer->points_earned
+                : null;
 
             if ($studentAnswer) {
                 $studentResponse = $studentAnswer->answer;
                 $isCorrect = $this->checkAnswer($item, $studentAnswer->answer, $correctAnswer);
-                $pointsEarned = $studentAnswer->points_earned ?? 0;
             }
 
             return [
@@ -291,8 +327,9 @@ class TakenExamController extends Controller
 
                 return $correctIndex !== false ? $correctIndex : null;
 
-            case 'truefalse':
-                return $item->answer;
+                case 'truefalse':
+                // Normalize the stored 'answer' value to boolean/null
+                return $this->normalizeBool($item->answer);
 
             case 'matching':
                 return $item->pairs;
@@ -326,14 +363,18 @@ class TakenExamController extends Controller
                 return (int) $studentAnswer === (int) $correctAnswer;
 
             case 'truefalse':
-                $expected = strtolower(trim((string) $correctAnswer));
-                $student = strtolower(trim((string) $studentAnswer));
+                // Normalize both sides; returns null if undetermined
+                $expectedBool = $this->normalizeBool($correctAnswer);
+                $studentBool = $this->normalizeBool($studentAnswer);
 
-                return $expected === $student;
+                if ($expectedBool === null || $studentBool === null) {
+                    return null;
+                }
+
+                return $expectedBool === $studentBool;
 
             case 'matching':
-                // For matching, check if student answer matches expected pairs
-                // But note: actual scoring counts each pair individually
+                // For matching, both student answer and correct answer are now normalized to {left, right} format
                 if (! is_string($studentAnswer)) {
                     return false;
                 }
@@ -343,9 +384,20 @@ class TakenExamController extends Controller
                     return false;
                 }
 
-                // Check if all pairs match
-                foreach ($studentPairs as $leftIndex => $rightIndex) {
-                    if (! isset($correctAnswer[$leftIndex]) || $correctAnswer[$leftIndex]['right'] !== $correctAnswer[$rightIndex]['right']) {
+                // Check if all student pairs exist in correct pairs
+                if (count($studentPairs) !== count($correctAnswer)) {
+                    return false;
+                }
+
+                foreach ($studentPairs as $studentPair) {
+                    $found = false;
+                    foreach ($correctAnswer as $correctPair) {
+                        if ($studentPair['left'] === $correctPair['left'] && $studentPair['right'] === $correctPair['right']) {
+                            $found = true;
+                            break;
+                        }
+                    }
+                    if (! $found) {
                         return false;
                     }
                 }
@@ -366,7 +418,7 @@ class TakenExamController extends Controller
     }
 
     /**
-     * Update points for a manually graded answer.
+     * Update points for a manually graded answer (JSON API).
      */
     public function updatePoints(Request $request, $examId, $takenExamId, $answerId)
     {
@@ -389,6 +441,11 @@ class TakenExamController extends Controller
         $totalPoints = $takenExam->answers()->sum('points_earned');
         $takenExam->update(['total_points' => $totalPoints]);
 
-        return redirect()->back()->with('success', 'Points updated successfully!');
+        return response()->json([
+            'success' => true,
+            'message' => 'Points updated successfully!',
+            'updated_answer' => $answer,
+            'total_points' => $takenExam->total_points,
+        ]);
     }
 }
