@@ -432,7 +432,7 @@ class TakenExamController extends Controller
             ->findOrFail($id);
 
         $validated = $request->validate([
-            'event_type' => 'required|in:tab_switch,window_blur,visibility_change',
+            'event_type' => 'required',
             'timestamp' => 'required|date',
         ]);
 
