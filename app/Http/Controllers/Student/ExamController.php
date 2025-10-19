@@ -19,8 +19,8 @@ class ExamController extends Controller
     {
         $user = Auth::user();
 
-        // OPTIMIZED: Get published exams with eager loading
-        $exams = Exam::where('status', 'ongoing')
+        // OPTIMIZED: Get published and ongoing exams with eager loading
+        $exams = Exam::whereIn('status', ['published', 'ongoing'])
             ->where(function ($query) use ($user) {
                 // Check if student's year is in the year array
                 $query->whereJsonContains('year', $user->year)
@@ -222,9 +222,8 @@ class ExamController extends Controller
      */
     private function isExamAvailable($exam)
     {
-        // Exam is available if status is 'ongoing'
-        // Teacher can manually set it to ongoing OR it can auto-transition based on schedule
-        return $exam->status === 'ongoing';
+        // Exam is available if status is 'published' or 'ongoing'
+        return in_array($exam->status, ['published', 'ongoing']);
     }
 
     /**
