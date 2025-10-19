@@ -41,9 +41,13 @@ class ExamController extends Controller
             });
         }
 
-        // Status filter
-        if ($request->filled('status') && $request->input('status') !== 'all') {
-            $query->where('status', $request->input('status'));
+        // Status filter - handle multiple statuses (comma-separated)
+        if ($request->filled('statuses')) {
+            $statuses = explode(',', $request->input('statuses'));
+            $statuses = array_filter(array_map('trim', $statuses)); // Clean up whitespace
+            if (! empty($statuses)) {
+                $query->whereIn('status', $statuses);
+            }
         }
 
         // Year filter
