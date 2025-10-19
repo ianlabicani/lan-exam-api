@@ -157,7 +157,7 @@ class GradingController extends Controller
         $user = Auth::user();
 
         // Find the taken exam and verify ownership
-        $takenExam = TakenExam::with(['exam.teachers', 'answers.item'])->findOrFail($id);
+        $takenExam = TakenExam::with(['exam.teachers', 'answers.item', 'exam.items'])->findOrFail($id);
 
         // Verify the authenticated teacher is assigned to this exam
         $isAssignedTeacher = $takenExam->exam->teachers()->where('teacher_id', $user->id)->exists();
@@ -182,6 +182,9 @@ class GradingController extends Controller
 
         DB::beginTransaction();
         try {
+            // Grade auto-gradable questions (MCQ, True/False, Matching, Fill Blank, Short Answer)
+            $this->gradeAutoGradableAnswers($takenExam);
+
             // Recalculate total score one final time
             $this->recalculateTotalScore($takenExam);
 
@@ -213,6 +216,153 @@ class GradingController extends Controller
                 'message' => 'Failed to finalize grades. Please try again.',
             ], 500);
         }
+    }
+
+    /**
+     * Grade all auto-gradable answers by comparing with correct answers
+     */
+    private function gradeAutoGradableAnswers(TakenExam $takenExam)
+    {
+        $autoGradableTypes = ['mcq', 'truefalse', 'matching', 'fillblank', 'fill_blank'];
+
+        // Create lookup for exam items
+        $itemsMap = $takenExam->exam->items->keyBy('id');
+
+        foreach ($takenExam->answers as $answer) {
+            // Only grade auto-gradable types that haven't been manually graded yet
+            if (in_array($answer->item->type, $autoGradableTypes) && $answer->points_earned === null) {
+                $correctAnswer = $this->getCorrectAnswer($answer->item);
+                $isCorrect = $this->checkAnswer($answer->item, $answer->answer, $correctAnswer);
+
+                // Assign full points if correct, 0 if incorrect, null if cannot be determined
+                if ($isCorrect === true) {
+                    $answer->points_earned = $answer->item->points;
+                } elseif ($isCorrect === false) {
+                    $answer->points_earned = 0;
+                }
+
+                $answer->save();
+            }
+        }
+    }
+
+    /**
+     * Get correct answer for a single exam item
+     */
+    private function getCorrectAnswer($item)
+    {
+        switch ($item->type) {
+            case 'mcq':
+                $options = collect($item->options ?? []);
+                $correctIndex = $options->search(function ($opt) {
+                    return is_array($opt)
+                        ? (! empty($opt['correct']))
+                        : (! empty($opt->correct));
+                });
+
+                return $correctIndex !== false ? $correctIndex : null;
+
+            case 'truefalse':
+                return $this->normalizeBool($item->answer);
+
+            case 'matching':
+                return $item->pairs;
+
+            case 'fillblank':
+            case 'fill_blank':
+                return $item->expected_answer;
+
+            case 'shortanswer':
+                return $item->expected_answer;
+
+            case 'essay':
+                return 'Manual grading required';
+
+            default:
+                return null;
+        }
+    }
+
+    /**
+     * Check if student answer is correct
+     */
+    private function checkAnswer($item, $studentAnswer, $correctAnswer)
+    {
+        if ($correctAnswer === null || $correctAnswer === 'Manual grading required') {
+            return null; // Cannot auto-check
+        }
+
+        switch ($item->type) {
+            case 'mcq':
+                return (int) $studentAnswer === (int) $correctAnswer;
+
+            case 'truefalse':
+                // Normalize both sides; returns null if undetermined
+                $expectedBool = $this->normalizeBool($correctAnswer);
+                $studentBool = $this->normalizeBool($studentAnswer);
+
+                if ($expectedBool === null || $studentBool === null) {
+                    return null;
+                }
+
+                return $expectedBool === $studentBool;
+
+            case 'matching':
+                // For matching, both student answer and correct answer are now normalized to {left, right} format
+                if (! is_string($studentAnswer)) {
+                    return false;
+                }
+
+                $studentPairs = json_decode($studentAnswer, true);
+                if (! is_array($studentPairs) || ! is_array($correctAnswer)) {
+                    return false;
+                }
+
+                // Check if all student pairs exist in correct pairs
+                if (count($studentPairs) !== count($correctAnswer)) {
+                    return false;
+                }
+
+                foreach ($studentPairs as $studentPair) {
+                    $found = false;
+                    foreach ($correctAnswer as $correctPair) {
+                        if ($studentPair['left'] === $correctPair['left'] && $studentPair['right'] === $correctPair['right']) {
+                            $found = true;
+                            break;
+                        }
+                    }
+                    if (! $found) {
+                        return false;
+                    }
+                }
+
+                return true;
+
+            case 'fillblank':
+            case 'fill_blank':
+            case 'shortanswer':
+                return strtolower(trim((string) $studentAnswer)) === strtolower(trim((string) $correctAnswer));
+
+            case 'essay':
+                return null; // Manual grading
+
+            default:
+                return null;
+        }
+    }
+
+    /**
+     * Normalize boolean values for consistent comparison
+     */
+    private function normalizeBool($value): ?bool
+    {
+        if ($value === true || $value === 1 || $value === '1' || $value === 'true' || $value === 'True') {
+            return true;
+        } elseif ($value === false || $value === 0 || $value === '0' || $value === 'false' || $value === 'False') {
+            return false;
+        }
+
+        return null;
     }
 
     /**
