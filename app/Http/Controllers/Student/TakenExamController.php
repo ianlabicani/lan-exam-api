@@ -5,7 +5,6 @@ namespace App\Http\Controllers\Student;
 use App\Http\Controllers\Controller;
 use App\Models\Exam;
 use App\Models\ExamActivityLog;
-use App\Models\ExamItem;
 use App\Models\TakenExam;
 use App\Models\TakenExamAnswer;
 use Illuminate\Http\Request;
@@ -276,27 +275,10 @@ class TakenExamController extends Controller
         $answer = $validated['answer'];
         $itemId = $validated['item_id'];
 
-        // For matching questions, normalize answer from indices to {left, right} pairs
+        // For array answers, JSON encode them directly
+        // Frontend already sends matching answers as objects: [{"left":"...", "right":"..."}]
         if (is_array($answer)) {
-            $item = ExamItem::findOrFail($itemId);
-            if ($item->type === 'matching' && is_array($item->pairs)) {
-                $pairs = $item->pairs;
-                $normalizedAnswer = [];
-
-                foreach ($answer as $leftIdx => $rightIdx) {
-                    if ($rightIdx !== null && isset($pairs[$leftIdx])) {
-                        $normalizedAnswer[] = [
-                            'left' => $pairs[$leftIdx]['left'],
-                            'right' => $pairs[$rightIdx]['right'] ?? null,
-                        ];
-                    }
-                }
-
-                $answer = json_encode($normalizedAnswer);
-            } else {
-                // For other array answers (MCQ, etc.), just JSON encode
-                $answer = json_encode($answer);
-            }
+            $answer = json_encode($answer);
         }
 
         // Save or update answer
@@ -345,7 +327,8 @@ class TakenExamController extends Controller
             foreach ($validated['answers'] as $answerData) {
                 $answer = $answerData['answer'];
 
-                // JSON-encode array answers (for matching, multiple choice arrays, etc.)
+                // JSON-encode array answers directly
+                // Frontend already sends matching answers as objects: [{"left":"...", "right":"..."}]
                 if (is_array($answer)) {
                     $answer = json_encode($answer);
                 }
@@ -490,7 +473,7 @@ class TakenExamController extends Controller
                 return null;
 
             case 'matching':
-                // Score each correct pair individually (1 point per pair)
+                // Score each correct pair individually
                 if (! is_string($studentAnswer)) {
                     return 0;
                 }
@@ -501,14 +484,28 @@ class TakenExamController extends Controller
                 }
 
                 $correctCount = 0;
-                foreach ($studentPairs as $leftIndex => $rightIndex) {
-                    // Check if this pair is correct
-                    if (isset($item->pairs[$leftIndex]) && $item->pairs[$leftIndex]['right'] === $item->pairs[$rightIndex]['right']) {
+                // Student answers are objects: {"left": "...", "right": "..."}
+                foreach ($studentPairs as $studentPair) {
+                    if (! is_array($studentPair) || ! isset($studentPair['left'], $studentPair['right'])) {
+                        continue;
+                    }
+
+                    // Find the correct right value for this left item
+                    $correctRightValue = null;
+                    foreach ($item->pairs as $pair) {
+                        if ($pair['left'] === $studentPair['left']) {
+                            $correctRightValue = $pair['right'];
+                            break;
+                        }
+                    }
+
+                    // Check if student's right value matches the correct one
+                    if ($correctRightValue !== null && $studentPair['right'] === $correctRightValue) {
                         $correctCount++;
                     }
                 }
 
-                // Each pair is worth 1 point
+                // Each correct pair is worth 1 point
                 return $correctCount;
 
             default:
