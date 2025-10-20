@@ -15,40 +15,34 @@ class ExamController extends Controller
     /**
      * Display available exams for the student
      */
-    public function index()
+    public function index(): \Illuminate\Http\JsonResponse
     {
         $user = Auth::user();
 
-        // OPTIMIZED: Get published and ongoing exams with eager loading
         $exams = Exam::whereIn('status', ['published', 'ongoing'])
-            ->where(function ($query) use ($user) {
-                // Check if student's year is in the year array
+            ->where(function ($query) use ($user): void {
                 $query->whereJsonContains('year', $user->year)
                     ->orWhereRaw('JSON_CONTAINS(year, ?)', [json_encode($user->year)]);
             })
-            ->where(function ($query) use ($user) {
-                // Check if student's section is in the sections array
+            ->where(function ($query) use ($user): void {
                 $query->whereJsonContains('sections', $user->section)
                     ->orWhereRaw('JSON_CONTAINS(sections, ?)', [json_encode($user->section)]);
             })
-            ->withCount('items') // Use withCount instead of loading all items
+            ->withCount('items')
             ->with([
-                'takenExams' => function ($query) use ($user) {
-                    // Only load this user's taken exam
+                'takenExams' => function ($query) use ($user): void {
                     $query->where('user_id', $user->id);
                 },
             ])
             ->orderBy('starts_at', 'desc')
-            ->get()
+            ->get()->makeHidden('takenExams')
             ->map(function ($exam) {
-                // Check if student has already taken this exam
                 $takenExam = $exam->takenExams->first();
 
-                $exam->taken = $takenExam !== null;
-                $exam->taken_exam = $takenExam;
-                $exam->is_available = $this->isExamAvailable($exam);
-
-                return $exam;
+                return [
+                    ...$exam->toArray(),
+                    'taken_exam' => $takenExam ?? null,
+                ];
             });
 
         return response()->json(['data' => $exams]);
