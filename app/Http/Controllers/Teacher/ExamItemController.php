@@ -47,6 +47,7 @@ class ExamItemController extends Controller
         $payload = $request->validate([
             'type' => 'required|string|in:mcq,truefalse,fillblank,shortanswer,essay,matching',
             'level' => 'required|string|in:easy,moderate,difficult',
+            'topic' => 'required|string',
             'question' => 'required|string',
             'points' => 'required|integer|min:1',
             'expected_answer' => 'nullable|string',
@@ -101,6 +102,7 @@ class ExamItemController extends Controller
         $item = $exam->items()->create([
             'type' => $payload['type'],
             'level' => $payload['level'],
+            'topic' => $payload['topic'],
             'question' => $payload['question'],
             'points' => $payload['points'],
             'expected_answer' => $payload['expected_answer'] ?? null,
@@ -144,6 +146,7 @@ class ExamItemController extends Controller
             'type' => 'sometimes|string|in:mcq,truefalse,fillblank,shortanswer,essay,matching',
             'question' => 'sometimes|string',
             'points' => 'sometimes|integer|min:1',
+            'topic' => 'sometimes|string',
             'expected_answer' => 'nullable|string',
             'answer' => 'nullable|string',
             'options' => 'nullable|array',
@@ -201,6 +204,7 @@ class ExamItemController extends Controller
         $updateData = [
             'type' => $type,
             'level' => $examItem->level,
+            'topic' => $data['topic'] ?? $examItem->topic,
             'question' => $data['question'] ?? $examItem->question,
             'points' => $data['points'] ?? $examItem->points,
             'expected_answer' => $data['expected_answer'] ?? null,

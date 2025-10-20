@@ -8,6 +8,7 @@ class ExamItem extends Model
 {
     protected $fillable = [
         'exam_id',
+        'topic',            // topic name for organization
         'type',             // mcq, truefalse, fill_blank (legacy: fillblank), shortanswer, essay, matching
         'level',            // easy, average, difficult
         'question',
