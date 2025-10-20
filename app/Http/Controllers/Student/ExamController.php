@@ -31,19 +31,23 @@ class ExamController extends Controller
             ->withCount('items')
             ->with([
                 'takenExams' => function ($query) use ($user): void {
-                    $query->where('user_id', $user->id);
+                    $query->where('user_id', $user->id)
+                        ->where('status', 'ongoing');
                 },
             ])
             ->orderBy('starts_at', 'desc')
-            ->get()->makeHidden('takenExams')
+            ->get()
+            ->makeHidden('takenExams')
+            ->filter(function ($exam) {
+                return $exam->takenExams->isNotEmpty();
+            })
             ->map(function ($exam) {
-                $takenExam = $exam->takenExams->first();
-
                 return [
                     ...$exam->toArray(),
-                    'taken_exam' => $takenExam ?? null,
+                    'taken_exam' => $exam->takenExams->first(),
                 ];
-            });
+            })
+            ->values();
 
         return response()->json(['data' => $exams]);
     }
