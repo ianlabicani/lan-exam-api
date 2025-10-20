@@ -31,20 +31,22 @@ class ExamController extends Controller
             ->withCount('items')
             ->with([
                 'takenExams' => function ($query) use ($user): void {
-                    $query->where('user_id', $user->id)
-                        ->where('status', 'ongoing');
+                    $query->where('user_id', $user->id);
                 },
             ])
             ->orderBy('starts_at', 'desc')
             ->get()
             ->makeHidden('takenExams')
             ->filter(function ($exam) {
-                return $exam->takenExams->isNotEmpty();
+                // Return exam if:
+                // 1. Student has NO taken exam record (hasn't started yet)
+                // 2. Student has a taken exam but it hasn't been submitted yet
+                return $exam->takenExams->isEmpty() || ! $exam->takenExams->first()->submitted_at;
             })
             ->map(function ($exam) {
                 return [
                     ...$exam->toArray(),
-                    'taken_exam' => $exam->takenExams->first(),
+                    'taken_exam' => $exam->takenExams->isNotEmpty() ? $exam->takenExams->first() : null,
                 ];
             })
             ->values();
