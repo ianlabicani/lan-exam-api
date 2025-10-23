@@ -20,25 +20,15 @@ class TakenExamController extends Controller
     public function index()
     {
         $user = Auth::user();
-
-        // OPTIMIZED: Select only necessary columns and use withCount for aggregates
-        $takenExams = TakenExam::with(['exam:id,title,total_points,status,starts_at,ends_at'])
-            ->where('user_id', $user->id)
+        $takenExams = TakenExam::where('user_id', $user->id)
+            ->with([
+                'exam' => function ($query): void {
+                    $query->withCount('items');
+                },
+            ])
+            ->withCount(['answers'])
             ->orderBy('created_at', 'desc')
-            ->get()
-            ->map(function ($takenExam) {
-                // Add computed properties
-                $takenExam->is_ongoing = $takenExam->submitted_at === null;
-                $takenExam->is_completed = $takenExam->submitted_at !== null;
-
-                if ($takenExam->exam) {
-                    $takenExam->percentage = $takenExam->exam->total_points > 0
-                        ? round(($takenExam->total_points / $takenExam->exam->total_points) * 100, 2)
-                        : 0;
-                }
-
-                return $takenExam;
-            });
+            ->get();
 
         return response()->json(['data' => $takenExams]);
     }
@@ -129,10 +119,12 @@ class TakenExamController extends Controller
 
         $exam = $takenExam->exam;
 
-        return response()->json([
-            'exam' => $exam,
-            'taken_exam' => $takenExam,
-        ]);
+        return response()->json(
+            ['data' => [
+                'exam' => $exam,
+                'taken_exam' => $takenExam,
+            ]]
+        );
     }
 
     /**
@@ -142,58 +134,56 @@ class TakenExamController extends Controller
     {
         $user = Auth::user();
 
-        $takenExam = TakenExam::with(['exam.items', 'answers.item'])
+        $takenExam = TakenExam::with(['answers.item'])
             ->where('user_id', $user->id)
             ->findOrFail($id);
 
-        if (! $takenExam->submitted_at) {
-            return response()->json(['info' => 'Please complete and submit the exam first.'], 403);
-        }
-
-        $exam = $takenExam->exam;
-
-        // Check if the student's submission has been graded
-        if ($takenExam->status !== 'graded') {
-            return response()->json([
-                'pending' => true,
-                'message' => 'Exam is pending grading.',
-                'takenExam' => $takenExam,
-                'exam' => $exam,
-            ], 202);
-        }
-
-        // Additionally check if exam is closed (optional double-check)
-        if ($exam->status !== 'closed') {
-            return response()->json([
-                'pending' => true,
-                'message' => 'Exam is not yet closed.',
-                'takenExam' => $takenExam,
-                'exam' => $exam,
-            ], 202);
-        }
-
-        // Calculate statistics (only shown when graded and exam is closed)
-        $totalQuestions = $exam->items->count();
-        $answeredQuestions = $takenExam->answers->count();
-        $correctAnswers = $takenExam->answers->where('points_earned', '>', 0)->count();
-        $percentage = $exam->total_points > 0
-            ? round(($takenExam->total_points / $exam->total_points) * 100, 2)
-            : 0;
-
-        // Load activity logs for this exam session
-        $activityLogs = ExamActivityLog::where('taken_exam_id', $takenExam->id)
-            ->orderBy('created_at', 'desc')
-            ->get();
-
         return response()->json([
-            'exam' => $exam,
-            'taken_exam' => $takenExam,
-            'total_questions' => $totalQuestions,
-            'answered_questions' => $answeredQuestions,
-            'correct_answers' => $correctAnswers,
-            'percentage' => $percentage,
-            'activity_logs' => $activityLogs,
+            'data' => $takenExam,
+            'message' => 'Exam details retrieved successfully.',
         ]);
+        // Check if the student's submission has been graded
+        // if ($takenExam->status !== 'graded') {
+        //     return response()->json([
+        //         'pending' => true,
+        //         'message' => 'Exam is pending grading.',
+        //         'takenExam' => $takenExam,
+        //         'exam' => $exam,
+        //     ], 202);
+        // }
+
+        // // Additionally check if exam is closed (optional double-check)
+        // if ($exam->status !== 'closed') {
+        //     return response()->json([
+        //         'pending' => true,
+        //         'message' => 'Exam is not yet closed.',
+        //         'takenExam' => $takenExam,
+        //         'exam' => $exam,
+        //     ], 202);
+        // }
+
+        // // Calculate statistics (only shown when graded and exam is closed)
+        // $totalQuestions = $exam->items->count();
+        // $answeredQuestions = $takenExam->answers->count();
+        // $correctAnswers = $takenExam->answers->where('points_earned', '>', 0)->count();
+        // $percentage = $exam->total_points > 0
+        //     ? round(($takenExam->total_points / $exam->total_points) * 100, 2)
+        //     : 0;
+
+        // // Load activity logs for this exam session
+        // $activityLogs = ExamActivityLog::where('taken_exam_id', $takenExam->id)
+        //     ->orderBy('created_at', 'desc')
+        //     ->get();
+
+        // return response()->json([
+        //     'exam' => $exam,
+        //     'taken_exam' => $takenExam,
+        //     'total_questions' => $totalQuestions,
+        //     'answered_questions' => $answeredQuestions,
+        //     'correct_answers' => $correctAnswers,
+        //     'percentage' => $percentage,
+        //     'activity_logs' => $activityLogs,
+        // ]);
     }
 
     /**
