@@ -19,34 +19,28 @@ class ExamController extends Controller
     {
         $user = Auth::user();
 
-        $exams = Exam::whereIn('status', ['published', 'ongoing'])
-            ->where(function ($query) use ($user): void {
-                $query->whereJsonContains('year', $user->year)
-                    ->orWhereRaw('JSON_CONTAINS(year, ?)', [json_encode($user->year)]);
-            })
-            ->where(function ($query) use ($user): void {
-                $query->whereJsonContains('sections', $user->section)
-                    ->orWhereRaw('JSON_CONTAINS(sections, ?)', [json_encode($user->section)]);
+        $exams = Exam::whereJsonContains('year', $user->year)
+            ->whereJsonContains('sections', $user->section)
+            ->whereIn('status', ['published', 'ongoing'])
+            ->whereHas('takenExams', function ($query) use ($user) {
+                $query->where('user_id', $user->id)
+                    ->where('status', 'ongoing');
             })
             ->withCount('items')
             ->with([
-                'takenExams' => function ($query) use ($user): void {
-                    $query->where('user_id', $user->id);
-                },
+                'takenExams' => fn ($q) => $q
+                    ->where('user_id', $user->id)
+                    ->where('status', 'ongoing'),
             ])
-            ->orderBy('starts_at', 'desc')
+            ->orderByDesc('starts_at')
             ->get()
-            ->makeHidden('takenExams')
-            ->filter(function ($exam) {
-                // Return exam if:
-                // 1. Student has NO taken exam record (hasn't started yet)
-                // 2. Student has a taken exam but it hasn't been submitted yet
-                return $exam->takenExams->isEmpty() || ! $exam->takenExams->first()->submitted_at;
-            })
             ->map(function ($exam) {
+                $takenExam = $exam->takenExams->first();
+
                 return [
-                    ...$exam->toArray(),
-                    'taken_exam' => $exam->takenExams->isNotEmpty() ? $exam->takenExams->first() : null,
+                    ...$exam->makeHidden('takenExams')->toArray(),
+                    'action' => 'continue',
+                    'taken_exam' => $takenExam,
                 ];
             })
             ->values();
